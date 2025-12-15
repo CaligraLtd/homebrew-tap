@@ -14,6 +14,12 @@ brew tap CaligraLtd/caligra-tap
 
 ```bash
 brew install --cask google-chrome-linux
+
+## the following casks originate from https://github.com/ublue-os/homebrew-experimental-tap & https://github.com/ublue-os/homebrew-tap
+brew install --cask 1password-gui-linux
+brew install --cask cursor-linux
+brew install --cask framework-tool-linux
+brew install --cask visual-studio-code-linux
 ```
 
 ## Development
