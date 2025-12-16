@@ -7,7 +7,7 @@ A custom Homebrew tap for Caligra Workbench, providing casks for Linux applicati
 First, tap this repository:
 
 ```bash
-brew tap CaligraLtd/caligra-tap
+brew tap CaligraLtd/homebrew-tap
 ```
 
 ## Available Casks
