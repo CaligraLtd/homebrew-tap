@@ -69,6 +69,38 @@ cask "1password-gui-linux" do
       as it already exists and is the same as the version to be installed."
     end
 
+    # Setup browser integration - create onepassword group and set permissions
+    puts "Setting up browser integration..."
+    group_name = "onepassword"
+    install_path = "#{HOMEBREW_PREFIX}/Caskroom/1password-gui-linux/#{version}"
+    browser_support_path = "#{install_path}/1password-#{version}.#{arch_suffix}/1Password-BrowserSupport"
+
+    # Create onepassword group if it doesn't exist
+    unless system("getent group #{group_name} > /dev/null 2>&1")
+      system "sudo", "groupadd", group_name
+      puts "Created #{group_name} group"
+    end
+
+    # Create custom_allowed_browsers file to whitelist browsers
+    system "sudo", "mkdir", "-p", "/etc/1password"
+    system "sh", "-c", "echo -e 'firefox\\ngoogle-chrome\\nchrome' | sudo tee /etc/1password/custom_allowed_browsers > /dev/null"
+    system "sudo", "chown", "root:root", "/etc/1password/custom_allowed_browsers"
+    system "sudo", "chmod", "755", "/etc/1password/custom_allowed_browsers"
+    puts "Created /etc/1password/custom_allowed_browsers"
+
+    # Make 1Password application directory tamper-proof by setting root ownership
+    # Only change the app directory, not the parent which contains homebrew's temp files
+    app_dir = "#{install_path}/1password-#{version}.#{arch_suffix}"
+    system "sudo", "chown", "-R", "root:root", app_dir
+    puts "Set application directory to root ownership"
+
+    # Set correct group and setgid permissions on BrowserSupport binary
+    system "sudo", "chgrp", group_name, browser_support_path
+    system "sudo", "chmod", "2755", browser_support_path
+    puts "Set permissions on #{browser_support_path}"
+    puts ""
+    puts "Browser integration configured. Restart your browsers to enable 1Password integration."
+
     File.write("#{staged_path}/zpass.sh", <<~EOS)
       #!/bin/bash
       zenity --password --title="Homebrew Sudo Password Prompt"
@@ -86,10 +118,27 @@ cask "1password-gui-linux" do
       else
         echo "/etc/polkit-1/actions/com.1password.1Password.policy does not exist, skipping."
       fi
+
+      # Remove custom_allowed_browsers file
+      if [ -f /etc/1password/custom_allowed_browsers ]; then
+        echo "Removing /etc/1password/custom_allowed_browsers"
+        sudo rm -f /etc/1password/custom_allowed_browsers
+        sudo rmdir /etc/1password 2>/dev/null || true
+      fi
     EOS
   end
 
   uninstall_preflight do
+    # Change ownership back to allow homebrew to clean up
+    arch_suffix = case arch
+                  when "aarch64" then "arm64"
+                  when "x86_64" then "x64"
+                  end
+    install_path = "#{HOMEBREW_PREFIX}/Caskroom/1password-gui-linux/#{version}"
+    app_dir = "#{install_path}/1password-#{version}.#{arch_suffix}"
+    current_user = ENV["USER"]
+    system "sudo", "chown", "-R", "#{current_user}:#{current_user}", app_dir
+
     system "chmod", "+x", "#{staged_path}/1password-uninstall.sh"
     system "#{staged_path}/1password-uninstall.sh"
   end

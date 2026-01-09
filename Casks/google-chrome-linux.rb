@@ -69,6 +69,21 @@ cask "google-chrome-linux" do
     end
   end
 
+  postflight do
+    # Make Chrome installation directory root-owned for 1Password browser integration
+    # 1Password's security verification requires browser binaries to be in tamper-proof locations
+    chrome_dir = "#{HOMEBREW_PREFIX}/Caskroom/google-chrome-linux/latest/opt/google/chrome"
+    system "sudo", "chown", "-R", "root:root", chrome_dir
+    puts "Set Chrome directory to root ownership for 1Password integration"
+  end
+
+  uninstall_preflight do
+    # Change ownership back to allow homebrew to clean up
+    chrome_dir = "#{HOMEBREW_PREFIX}/Caskroom/google-chrome-linux/latest/opt/google/chrome"
+    current_user = ENV["USER"]
+    system "sudo", "chown", "-R", "#{current_user}:#{current_user}", chrome_dir
+  end
+
   zap trash: [
     "~/.cache/google-chrome",
     "~/.config/google-chrome",
