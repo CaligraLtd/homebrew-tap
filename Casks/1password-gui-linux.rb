@@ -81,13 +81,6 @@ cask "1password-gui-linux" do
       puts "Created #{group_name} group"
     end
 
-    # Create custom_allowed_browsers file to whitelist browsers
-    system "sudo", "mkdir", "-p", "/etc/1password"
-    system "sh", "-c", "echo -e 'firefox\\ngoogle-chrome\\nchrome' | sudo tee /etc/1password/custom_allowed_browsers > /dev/null"
-    system "sudo", "chown", "root:root", "/etc/1password/custom_allowed_browsers"
-    system "sudo", "chmod", "755", "/etc/1password/custom_allowed_browsers"
-    puts "Created /etc/1password/custom_allowed_browsers"
-
     # Make 1Password application directory tamper-proof by setting root ownership
     # Only change the app directory, not the parent which contains homebrew's temp files
     app_dir = "#{install_path}/1password-#{version}.#{arch_suffix}"
@@ -117,13 +110,6 @@ cask "1password-gui-linux" do
         echo "Removed /etc/polkit-1/actions/com.1password.1Password.policy"
       else
         echo "/etc/polkit-1/actions/com.1password.1Password.policy does not exist, skipping."
-      fi
-
-      # Remove custom_allowed_browsers file
-      if [ -f /etc/1password/custom_allowed_browsers ]; then
-        echo "Removing /etc/1password/custom_allowed_browsers"
-        sudo rm -f /etc/1password/custom_allowed_browsers
-        sudo rmdir /etc/1password 2>/dev/null || true
       fi
     EOS
   end
