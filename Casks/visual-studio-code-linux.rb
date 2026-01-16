@@ -30,6 +30,8 @@ cask "visual-studio-code-linux" do
            target: "#{Dir.home}/.local/share/applications/code-url-handler.desktop"
   artifact "VSCode-linux-#{arch}/resources/app/resources/linux/code.png",
            target: "#{Dir.home}/.local/share/icons/vscode.png"
+  artifact "settings.json",
+           target: "#{Dir.home}/.config/Code/User/settings.json"
 
   preflight do
     FileUtils.mkdir_p "#{Dir.home}/.local/share/applications"
@@ -77,6 +79,15 @@ cask "visual-studio-code-linux" do
       MimeType=x-scheme-handler/vscode;
       Keywords=vscode;
     EOS
+    
+    # Enable native window decorations by default
+    settings = {
+      "window.titleBarStyle" => "native",
+    }
+
+    require "json"
+    settings_path = "#{staged_path}/settings.json"
+    File.write(settings_path, JSON.pretty_generate(settings))
   end
 
   zap trash: [
