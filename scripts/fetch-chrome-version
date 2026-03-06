@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Fetches the latest stable Google Chrome version and SHA256 from Google's RPM repodata.
+# Outputs KEY=VALUE lines suitable for $GITHUB_OUTPUT or shell consumption.
+set -euo pipefail
+
+curl -sf "https://dl.google.com/linux/chrome/rpm/stable/x86_64/repodata/primary.xml.gz" \
+  | gunzip \
+  | python3 -c "
+import sys, xml.etree.ElementTree as ET
+
+ns = {'r': 'http://linux.duke.edu/metadata/common'}
+tree = ET.parse(sys.stdin)
+best = None
+for pkg in tree.getroot().findall('r:package', ns):
+    if pkg.find('r:name', ns).text == 'google-chrome-stable':
+        ver = pkg.find('r:version', ns).get('ver')
+        sha = pkg.find('r:checksum', ns).text
+        ver_tuple = tuple(int(x) for x in ver.split('.'))
+        if best is None or ver_tuple > best[0]:
+            best = (ver_tuple, ver, sha)
+
+if best is None:
+    print('google-chrome-stable not found in repodata', file=sys.stderr)
+    sys.exit(1)
+
+print(f'VERSION={best[1]}')
+print(f'SHA256={best[2]}')
+"

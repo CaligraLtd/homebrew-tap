@@ -1,0 +1,44 @@
+name: Bump Google Chrome
+
+on:
+  schedule:
+    - cron: "0 8 * * *" # Daily at 08:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch latest Chrome version
+        id: fetch
+        run: ./scripts/fetch-chrome-version >> "$GITHUB_OUTPUT"
+
+      - name: Bump cask
+        run: ./scripts/bump-chrome-cask "${{ steps.fetch.outputs.VERSION }}" "${{ steps.fetch.outputs.SHA256 }}"
+
+      - name: Open PR
+        run: |
+          git diff --quiet && exit 0
+
+          VERSION="${{ steps.fetch.outputs.VERSION }}"
+          BRANCH="auto/chrome-${VERSION}"
+
+          git config user.name "cholotes"
+          git config user.email "cholotes@caligra.com"
+
+          git checkout -b "$BRANCH"
+          git add Casks/google-chrome-linux.rb
+          git commit -m "chore(chrome): bump to ${VERSION}"
+          git push -u origin "$BRANCH"
+
+          gh pr create \
+            --title "chore(chrome): bump to ${VERSION}" \
+            --body "Automated version bump for Google Chrome ${VERSION}."
+        env:
+          GH_TOKEN: ${{ github.token }}
