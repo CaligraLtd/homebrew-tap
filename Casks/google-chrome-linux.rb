@@ -1,6 +1,6 @@
 cask "google-chrome-linux" do
-  version "145.0.7632.159"
-  sha256 "3b58dce77e81b1c4d8438170a20123d234bad306f5a5a2798316b031ef307fbe"
+  version "146.0.7680.164"
+  sha256 "92707219b9b42c4d70835d75a9ec037c903a3d1dd016729543e3c0ac2f41ef39"
   os linux: "linux"
 
   url "https://dl.google.com/linux/chrome/rpm/stable/x86_64/google-chrome-stable-#{version}-1.x86_64.rpm"
