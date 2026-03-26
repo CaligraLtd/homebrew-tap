@@ -41,6 +41,6 @@ jobs:
             --title "chore(chrome): bump to ${VERSION}" \
             --body "Automated version bump for Google Chrome ${VERSION}."
 
-          gh pr merge --auto "$BRANCH"
+          gh pr merge --auto --merge "$BRANCH"
         env:
           GH_TOKEN: ${{ github.token }}
