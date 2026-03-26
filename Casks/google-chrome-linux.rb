@@ -1,9 +1,9 @@
 cask "google-chrome-linux" do
-  version :latest
-  sha256 :no_check
+  version "145.0.7632.159"
+  sha256 "3b58dce77e81b1c4d8438170a20123d234bad306f5a5a2798316b031ef307fbe"
   os linux: "linux"
 
-  url "https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm"
+  url "https://dl.google.com/linux/chrome/rpm/stable/x86_64/google-chrome-stable-#{version}-1.x86_64.rpm"
   name "Google Chrome"
   desc "Web browser from Google"
   homepage "https://www.google.com/chrome/"
@@ -19,7 +19,7 @@ cask "google-chrome-linux" do
 
   preflight do
     # Extract RPM package
-    system "sh", "-c", "cd #{staged_path} && rpm2cpio google-chrome-stable_current_x86_64.rpm | cpio -idmv 2>/dev/null"
+    system "sh", "-c", "cd #{staged_path} && rpm2cpio google-chrome-stable-#{version}-1.x86_64.rpm | cpio -idmv 2>/dev/null"
 
     # Copy icon
     icon_source = "#{staged_path}/opt/google/chrome/product_logo_256.png"
