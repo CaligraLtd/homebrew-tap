@@ -70,7 +70,7 @@ cask "google-chrome-linux" do
     File.write(wrapper, <<~SH)
       #!/bin/bash
       CHROME_DIR="${HOME}/.config/google-chrome"
-      if [ -d "${CHROME_DIR}" ]; then
+      if [ -d "${CHROME_DIR}" ] && [ ! -e "${CHROME_DIR}/SingletonLock" ]; then
         for prefs in "${CHROME_DIR}"/*/Preferences; do
           [ -f "${prefs}" ] || continue
           python3 -c "
