@@ -38,35 +38,30 @@ cask "google-chrome-linux" do
     new_contents = new_contents.gsub(/Icon=.*/, "Icon=#{HOMEBREW_PREFIX}/share/pixmaps/google-chrome.png")
     File.write("#{staged_path}/google-chrome.desktop", new_contents)
 
-    # Set up initial preferences for Caligra Workbench
-    if File.exist?("/etc/os-release")
-      os_release = File.read("/etc/os-release")
-      if os_release.include?("Caligra Workbench")
-        preferences = {
-          "browser" => {
-            "custom_chrome_frame" => false,
-            "theme" => {
-              "is_grayscale" => true,
-            },
-            "window_placement" => {
-              "bottom" => 940,
-              "left" => 0,
-              "maximized" => false,
-              "right" => 1219,
-              "top" => 100,
-            },
-          },
-          "first_run_tabs" => [
-            "https://caligra.com",
-            "https://lobste.rs/",
-          ],
-        }
+    # Set up initial preferences
+    preferences = {
+      "browser" => {
+        "custom_chrome_frame" => false,
+        "theme" => {
+          "is_grayscale" => true,
+        },
+        "window_placement" => {
+          "bottom" => 940,
+          "left" => 0,
+          "maximized" => false,
+          "right" => 1219,
+          "top" => 100,
+        },
+      },
+      "first_run_tabs" => [
+        "https://caligra.com",
+        "https://lobste.rs/",
+      ],
+    }
 
-        require "json"
-        initial_prefs_path = "#{staged_path}/opt/google/chrome/initial_preferences"
-        File.write(initial_prefs_path, JSON.pretty_generate(preferences))
-      end
-    end
+    require "json"
+    initial_prefs_path = "#{staged_path}/opt/google/chrome/initial_preferences"
+    File.write(initial_prefs_path, JSON.pretty_generate(preferences))
 
     # Enforce system window decorations on all profiles before launch,
     # since initial_preferences only applies to the Default profile.
@@ -79,7 +74,8 @@ cask "google-chrome-linux" do
         for prefs in "${CHROME_DIR}"/*/Preferences; do
           [ -f "${prefs}" ] || continue
           python3 -c "
-import json, sys
+import json
+import sys
 with open(sys.argv[1]) as f: d = json.load(f)
 if d.get('browser', {}).get('custom_chrome_frame') is not False:
     d.setdefault('browser', {})['custom_chrome_frame'] = False
