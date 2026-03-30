@@ -10,8 +10,8 @@ cask "google-chrome-linux" do
 
   depends_on arch: :x86_64
 
-  binary "#{staged_path}/opt/google/chrome/google-chrome"
-  binary "#{staged_path}/opt/google/chrome/google-chrome", target: "google-chrome-stable"
+  binary "#{staged_path}/opt/google/chrome/google-chrome-wrapper", target: "google-chrome"
+  binary "#{staged_path}/opt/google/chrome/google-chrome-wrapper", target: "google-chrome-stable"
   artifact "google-chrome.desktop",
            target: "#{HOMEBREW_PREFIX}/share/applications/google-chrome.desktop"
   artifact "google-chrome.png",
@@ -67,6 +67,29 @@ cask "google-chrome-linux" do
         File.write(initial_prefs_path, JSON.pretty_generate(preferences))
       end
     end
+
+    # Enforce system window decorations on all profiles before launch,
+    # since initial_preferences only applies to the Default profile.
+    chrome_bin = "#{staged_path}/opt/google/chrome/google-chrome"
+    wrapper = "#{staged_path}/opt/google/chrome/google-chrome-wrapper"
+    File.write(wrapper, <<~SH)
+      #!/bin/bash
+      CHROME_DIR="${HOME}/.config/google-chrome"
+      if [ -d "${CHROME_DIR}" ]; then
+        for prefs in "${CHROME_DIR}"/*/Preferences; do
+          [ -f "${prefs}" ] || continue
+          python3 -c "
+import json, sys
+with open(sys.argv[1]) as f: d = json.load(f)
+if d.get('browser', {}).get('custom_chrome_frame') is not False:
+    d.setdefault('browser', {})['custom_chrome_frame'] = False
+    with open(sys.argv[1], 'w') as f: json.dump(d, f)
+" "${prefs}" 2>/dev/null
+        done
+      fi
+      exec "#{chrome_bin}" "$@"
+    SH
+    FileUtils.chmod(0o755, wrapper)
   end
 
   zap trash: [
