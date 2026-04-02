@@ -29,6 +29,17 @@ jobs:
           VERSION="${{ steps.fetch.outputs.VERSION }}"
           BRANCH="auto/chrome-${VERSION}"
 
+          # Skip if a branch for this version already exists (exit 0 = found, 2 = not found)
+          rc=0
+          git ls-remote --exit-code origin "refs/heads/${BRANCH}" >/dev/null 2>&1 || rc=$?
+          if [ "$rc" = 0 ]; then
+            echo "Branch ${BRANCH} already exists on remote — skipping"
+            exit 0
+          elif [ "$rc" != 2 ]; then
+            echo "git ls-remote failed (exit $rc)" >&2
+            exit 1
+          fi
+
           git config user.name "cholotes"
           git config user.email "cholotes@caligra.com"
 
