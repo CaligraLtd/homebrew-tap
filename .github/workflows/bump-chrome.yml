@@ -28,7 +28,7 @@ jobs:
 
       - name: Create or update bump PR
         id: cpr
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@6b2f0f9b6f2f4f0d5b1f4f9e6e3d7d6b0c4e5a21 # v7
         with:
           token: ${{ github.token }}
           commit-message: "chore(chrome): bump to ${{ steps.fetch.outputs.VERSION }}"
