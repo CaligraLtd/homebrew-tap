@@ -28,7 +28,7 @@ jobs:
 
       - name: Create or update bump PR
         id: cpr
-        uses: peter-evans/create-pull-request@c0f553f # v8.1
+        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1
         with:
           token: ${{ github.token }}
           author: cholotes <cholotes@caligra.com>
