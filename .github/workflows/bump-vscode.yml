@@ -1,0 +1,51 @@
+name: Bump VS Code
+
+on:
+  schedule:
+    - cron: "0 8 * * *" # Daily at 08:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: bump-vscode
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch latest VS Code version
+        id: fetch
+        run: ./scripts/fetch-vscode-version >> "$GITHUB_OUTPUT"
+
+      - name: Bump cask
+        id: bump
+        run: ./scripts/bump-vscode-cask "${{ steps.fetch.outputs.VERSION }}" "${{ steps.fetch.outputs.SHA256_ARM64 }}" "${{ steps.fetch.outputs.SHA256_X86_64 }}" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update bump PR
+        if: steps.bump.outputs.CHANGED == 'true'
+        id: cpr
+        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1
+        with:
+          token: ${{ github.token }}
+          author: cholotes <cholotes@caligra.com>
+          committer: cholotes <cholotes@caligra.com>
+          commit-message: "chore(vscode): bump to ${{ steps.fetch.outputs.VERSION }}"
+          title: "chore(vscode): bump to ${{ steps.fetch.outputs.VERSION }}"
+          body: |
+            Automated version bump for VS Code ${{ steps.fetch.outputs.VERSION }}.
+          branch: auto/vscode
+          delete-branch: true
+          add-paths: |
+            Casks/visual-studio-code-linux.rb
+
+      - name: Enable auto-merge
+        if: steps.cpr.outputs.pull-request-number != ''
+        run: gh pr merge --auto --merge "${{ steps.cpr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
