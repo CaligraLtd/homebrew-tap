@@ -31,6 +31,8 @@ jobs:
         uses: peter-evans/create-pull-request@c0f553f # v8.1
         with:
           token: ${{ github.token }}
+          author: cholotes <cholotes@caligra.com>
+          committer: cholotes <cholotes@caligra.com>
           commit-message: "chore(chrome): bump to ${{ steps.fetch.outputs.VERSION }}"
           title: "chore(chrome): bump to ${{ steps.fetch.outputs.VERSION }}"
           body: |
