@@ -24,9 +24,11 @@ jobs:
         run: ./scripts/fetch-chrome-version >> "$GITHUB_OUTPUT"
 
       - name: Bump cask
-        run: ./scripts/bump-chrome-cask "${{ steps.fetch.outputs.VERSION }}" "${{ steps.fetch.outputs.SHA256 }}"
+        id: bump
+        run: ./scripts/bump-chrome-cask "${{ steps.fetch.outputs.VERSION }}" "${{ steps.fetch.outputs.SHA256 }}" >> "$GITHUB_OUTPUT"
 
       - name: Create or update bump PR
+        if: steps.bump.outputs.CHANGED == 'true'
         id: cpr
         uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1
         with:
@@ -43,7 +45,7 @@ jobs:
             Casks/google-chrome-linux.rb
 
       - name: Enable auto-merge
-        if: ${{ steps.cpr.outputs.pull-request-number != '' }}
+        if: steps.cpr.outputs.pull-request-number != ''
         run: gh pr merge --auto --merge "${{ steps.cpr.outputs.pull-request-number }}"
         env:
           GH_TOKEN: ${{ github.token }}

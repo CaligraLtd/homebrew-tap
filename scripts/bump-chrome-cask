@@ -24,4 +24,5 @@ fi
 sed -i "s/version \".*\"/version \"${VERSION}\"/" "$CASK"
 sed -i "s/sha256 \".*\"/sha256 \"${SHA256}\"/" "$CASK"
 
-echo "$CURRENT -> $VERSION"
+echo "CHANGED=true"
+echo "$CURRENT -> $VERSION" >&2
