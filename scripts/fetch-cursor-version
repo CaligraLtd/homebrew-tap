@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Fetches the latest stable Cursor version, commit hash, and SHA256s from the update API.
+# Outputs KEY=VALUE lines suitable for $GITHUB_OUTPUT or shell consumption.
+set -euo pipefail
+
+API_RESPONSE=$(curl -sf "https://api2.cursor.sh/updates/api/update/linux-x64/cursor/0.0.0/stable")
+
+VERSION=$(echo "$API_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])")
+COMMIT=$(echo "$API_RESPONSE" | python3 -c "
+import sys, json, re
+data = json.load(sys.stdin)
+m = re.search(r'/production/([a-f0-9]+)/', data['url'])
+if not m:
+    print('Could not extract commit hash from URL', file=sys.stderr)
+    sys.exit(1)
+print(m.group(1))
+")
+
+SHA256_ARM64=$(curl -sfL "https://downloads.cursor.com/production/${COMMIT}/linux/arm64/Cursor-${VERSION}-aarch64.AppImage" \
+  | sha256sum | awk '{print $1}')
+
+SHA256_X86_64=$(curl -sfL "https://downloads.cursor.com/production/${COMMIT}/linux/x64/Cursor-${VERSION}-x86_64.AppImage" \
+  | sha256sum | awk '{print $1}')
+
+echo "VERSION=${VERSION}"
+echo "COMMIT=${COMMIT}"
+echo "SHA256_ARM64=${SHA256_ARM64}"
+echo "SHA256_X86_64=${SHA256_X86_64}"

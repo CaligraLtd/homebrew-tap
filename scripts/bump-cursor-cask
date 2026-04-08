@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Updates the cursor-linux cask to a new version+shas, verifying the AppImage exists first.
+# Usage: bump-cursor-cask <version> <commit> <sha256_arm64> <sha256_x86_64>
+set -euo pipefail
+
+VERSION="${1:?usage: bump-cursor-cask <version> <commit> <sha256_arm64> <sha256_x86_64>}"
+COMMIT="${2:?usage: bump-cursor-cask <version> <commit> <sha256_arm64> <sha256_x86_64>}"
+SHA256_ARM64="${3:?usage: bump-cursor-cask <version> <commit> <sha256_arm64> <sha256_x86_64>}"
+SHA256_X86_64="${4:?usage: bump-cursor-cask <version> <commit> <sha256_arm64> <sha256_x86_64>}"
+CASK="Casks/cursor-linux.rb"
+
+CURRENT=$(awk -F'"' '/^ *version "/{print $2}' "$CASK")
+if [ "${VERSION},${COMMIT}" = "$CURRENT" ]; then
+  echo "Already at ${VERSION},${COMMIT}" >&2
+  exit 0
+fi
+
+URL="https://downloads.cursor.com/production/${COMMIT}/linux/x64/Cursor-${VERSION}-x86_64.AppImage"
+STATUS=$(curl -sILo /dev/null -w "%{http_code}" "$URL")
+if [ "$STATUS" != "200" ]; then
+  echo "AppImage not found at $URL (HTTP $STATUS)" >&2
+  exit 1
+fi
+
+sed -i "s/version \".*\"/version \"${VERSION},${COMMIT}\"/" "$CASK"
+sed -i 's/\(arm64_linux: *"\)[^"]*"/\1'"${SHA256_ARM64}"'"/' "$CASK"
+sed -i 's/\(x86_64_linux: *"\)[^"]*"/\1'"${SHA256_X86_64}"'"/' "$CASK"
+
+echo "CHANGED=true"
+echo "${CURRENT} -> ${VERSION},${COMMIT}" >&2
