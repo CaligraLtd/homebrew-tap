@@ -1,0 +1,51 @@
+name: Bump Cursor
+
+on:
+  schedule:
+    - cron: "0 8 * * *" # Daily at 08:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: bump-cursor
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch latest Cursor version
+        id: fetch
+        run: ./scripts/fetch-cursor-version >> "$GITHUB_OUTPUT"
+
+      - name: Bump cask
+        id: bump
+        run: ./scripts/bump-cursor-cask "${{ steps.fetch.outputs.VERSION }}" "${{ steps.fetch.outputs.COMMIT }}" "${{ steps.fetch.outputs.SHA256_ARM64 }}" "${{ steps.fetch.outputs.SHA256_X86_64 }}" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update bump PR
+        if: steps.bump.outputs.CHANGED == 'true'
+        id: cpr
+        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1
+        with:
+          token: ${{ github.token }}
+          author: cholotes <cholotes@caligra.com>
+          committer: cholotes <cholotes@caligra.com>
+          commit-message: "chore(cursor): bump to ${{ steps.fetch.outputs.VERSION }}"
+          title: "chore(cursor): bump to ${{ steps.fetch.outputs.VERSION }}"
+          body: |
+            Automated version bump for Cursor ${{ steps.fetch.outputs.VERSION }}.
+          branch: auto/cursor
+          delete-branch: true
+          add-paths: |
+            Casks/cursor-linux.rb
+
+      - name: Enable auto-merge
+        if: steps.cpr.outputs.pull-request-number != ''
+        run: gh pr merge --auto --merge "${{ steps.cpr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ github.token }}

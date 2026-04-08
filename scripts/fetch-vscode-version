@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Fetches the latest stable VS Code version and SHA256s from the update API.
+# Outputs KEY=VALUE lines suitable for $GITHUB_OUTPUT or shell consumption.
+set -euo pipefail
+
+VERSION=$(curl -sf "https://update.code.visualstudio.com/api/update/linux-x64/stable/latest" \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['productVersion'])")
+
+SHA256_ARM64=$(curl -sf "https://update.code.visualstudio.com/api/update/linux-arm64/stable/latest" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['sha256hash'])")
+
+SHA256_X86_64=$(curl -sf "https://update.code.visualstudio.com/api/update/linux-x64/stable/latest" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['sha256hash'])")
+
+echo "VERSION=${VERSION}"
+echo "SHA256_ARM64=${SHA256_ARM64}"
+echo "SHA256_X86_64=${SHA256_X86_64}"
