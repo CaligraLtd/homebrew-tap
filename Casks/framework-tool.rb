@@ -1,7 +1,7 @@
 # Originally from https://github.com/ublue-os/homebrew-tap/blob/main/Casks/framework-tool.rb
 cask "framework-tool" do
-  version "0.4.5"
-  sha256 "e94af70b2a287577c3d7e26e92e1a3910bd27b725543ac5763b7cd348d8fb57d"
+  version "0.6.2"
+  sha256 "2c03a7843ab1ef3625e22b9066c59e6bb42be7e5ef5c4ab18e0cde6598fe6f0c"
 
   url "https://github.com/FrameworkComputer/framework-system/releases/download/v#{version}/framework_tool"
   name "Framework System Tool"
