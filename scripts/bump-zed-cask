@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Updates the zed-linux cask to a new version+shas, verifying the tarball exists first.
+# Usage: bump-zed-cask <version> <sha256_arm64> <sha256_x86_64>
+set -euo pipefail
+
+VERSION="${1:?usage: bump-zed-cask <version> <sha256_arm64> <sha256_x86_64>}"
+SHA256_ARM64="${2:?usage: bump-zed-cask <version> <sha256_arm64> <sha256_x86_64>}"
+SHA256_X86_64="${3:?usage: bump-zed-cask <version> <sha256_arm64> <sha256_x86_64>}"
+CASK="Casks/zed-linux.rb"
+
+CURRENT=$(awk -F'"' '/^ *version "/{print $2}' "$CASK")
+if [ "$VERSION" = "$CURRENT" ]; then
+  echo "Already at $VERSION" >&2
+  exit 0
+fi
+
+for ARCH in x86_64 aarch64; do
+  URL="https://github.com/zed-industries/zed/releases/download/v${VERSION}/zed-linux-${ARCH}.tar.gz"
+  STATUS=$(curl -sILo /dev/null -w "%{http_code}" "$URL")
+  if [ "$STATUS" != "200" ]; then
+    echo "Tarball not found at $URL (HTTP $STATUS)" >&2
+    exit 1
+  fi
+done
+
+sed -i "s/version \".*\"/version \"${VERSION}\"/" "$CASK"
+sed -i 's/\(arm64_linux: *"\)[^"]*"/\1'"${SHA256_ARM64}"'"/' "$CASK"
+sed -i 's/\(x86_64_linux: *"\)[^"]*"/\1'"${SHA256_X86_64}"'"/' "$CASK"
+
+echo "CHANGED=true"
+echo "$CURRENT -> $VERSION" >&2
