@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Fetches the latest stable PyCharm version, build, and SHA256s from the JetBrains releases API.
+# Outputs KEY=VALUE lines suitable for $GITHUB_OUTPUT or shell consumption.
+set -euo pipefail
+
+RELEASE_JSON=$(curl -sf "https://data.services.jetbrains.com/products/releases?code=PCP&latest=true&type=release")
+
+VERSION=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['PCP'][0]['version'])")
+BUILD=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['PCP'][0]['build'])")
+
+SHA256_ARM64=$(curl -sf "https://download.jetbrains.com/python/pycharm-${VERSION}-aarch64.tar.gz.sha256" | awk '{print $1}')
+SHA256_X86_64=$(curl -sf "https://download.jetbrains.com/python/pycharm-${VERSION}.tar.gz.sha256" | awk '{print $1}')
+
+echo "VERSION=${VERSION}"
+echo "BUILD=${BUILD}"
+echo "SHA256_ARM64=${SHA256_ARM64}"
+echo "SHA256_X86_64=${SHA256_X86_64}"
