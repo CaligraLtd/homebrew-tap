@@ -47,7 +47,7 @@ cask "pycharm-linux" do
       Version=1.0
       Name=PyCharm
       Comment=The Only Python IDE you need
-      Exec=#{HOMEBREW_PREFIX}/bin/pycharm %u
+      Exec=#{HOMEBREW_PREFIX}/bin/pycharm %F
       Icon=pycharm
       Type=Application
       Categories=Development;IDE;
