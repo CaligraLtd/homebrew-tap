@@ -67,6 +67,21 @@ cask "google-chrome-linux" do
         File.write(initial_prefs_path, JSON.pretty_generate(preferences))
       end
     end
+
+    # Inject a hook into Chrome's own launcher to enforce window decorations
+    # on all profiles. initial_preferences only covers the Default profile;
+    # this catches additional profiles on every launch.
+    launcher = "#{staged_path}/opt/google/chrome/google-chrome"
+    launcher_script = File.read(launcher)
+    patch_block = <<~'BASH'
+      for prefs in "$HOME/.config/google-chrome"/*/Preferences; do
+        [ -f "$prefs" ] || continue
+        tmp="${prefs}.tmp"
+        jq '.browser.custom_chrome_frame = false | .browser.theme.is_grayscale = true' "$prefs" > "$tmp" 2>/dev/null && mv "$tmp" "$prefs"
+      done
+    BASH
+    launcher_script.sub!('exec -a "$0"', "#{patch_block}exec -a \"$0\"")
+    File.write(launcher, launcher_script)
   end
 
   zap trash: [
