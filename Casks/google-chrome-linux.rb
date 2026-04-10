@@ -10,8 +10,8 @@ cask "google-chrome-linux" do
 
   depends_on arch: :x86_64
 
-  binary "#{staged_path}/opt/google/chrome/google-chrome-wrapper", target: "google-chrome"
-  binary "#{staged_path}/opt/google/chrome/google-chrome-wrapper", target: "google-chrome-stable"
+  binary "#{staged_path}/opt/google/chrome/google-chrome"
+  binary "#{staged_path}/opt/google/chrome/google-chrome", target: "google-chrome-stable"
   artifact "google-chrome.desktop",
            target: "#{HOMEBREW_PREFIX}/share/applications/google-chrome.desktop"
   artifact "google-chrome.png",
@@ -37,9 +37,6 @@ cask "google-chrome-linux" do
     # Update icon path to use the one we copied
     new_contents = new_contents.gsub(/Icon=.*/, "Icon=#{HOMEBREW_PREFIX}/share/pixmaps/google-chrome.png")
     File.write("#{staged_path}/google-chrome.desktop", new_contents)
-
-    chrome_bin = "#{staged_path}/opt/google/chrome/google-chrome"
-    wrapper = "#{staged_path}/opt/google/chrome/google-chrome-wrapper"
 
     # Set up initial preferences for Caligra Workbench
     if File.exist?("/etc/os-release")
@@ -71,27 +68,20 @@ cask "google-chrome-linux" do
       end
     end
 
-    # Enforce system window decorations on all profiles before launch,
-    # since initial_preferences only applies to the Default profile.
-    File.write(wrapper, <<~SH)
-      #!/bin/bash
-      CHROME_DIR="${HOME}/.config/google-chrome"
-      if [ -d "${CHROME_DIR}" ] && [ ! -e "${CHROME_DIR}/SingletonLock" ]; then
-        for prefs in "${CHROME_DIR}"/*/Preferences; do
-          [ -f "${prefs}" ] || continue
-          python3 -c "
-import json
-import sys
-with open(sys.argv[1]) as f: d = json.load(f)
-if d.get('browser', {}).get('custom_chrome_frame') is not False:
-    d.setdefault('browser', {})['custom_chrome_frame'] = False
-    with open(sys.argv[1], 'w') as f: json.dump(d, f)
-" "${prefs}" 2>/dev/null
-        done
-      fi
-      exec "#{chrome_bin}" "$@"
-    SH
-    FileUtils.chmod(0o755, wrapper)
+    # Inject a hook into Chrome's own launcher to enforce window decorations
+    # on all profiles. initial_preferences only covers the Default profile;
+    # this catches additional profiles on every launch.
+    launcher = "#{staged_path}/opt/google/chrome/google-chrome"
+    launcher_script = File.read(launcher)
+    patch_block = <<~'BASH'
+      for prefs in "$HOME/.config/google-chrome"/*/Preferences; do
+        [ -f "$prefs" ] || continue
+        tmp="${prefs}.tmp"
+        jq '.browser.custom_chrome_frame = false | .browser.theme.is_grayscale = true' "$prefs" > "$tmp" 2>/dev/null && mv "$tmp" "$prefs"
+      done
+    BASH
+    launcher_script.sub!('exec -a "$0"', "#{patch_block}exec -a \"$0\"")
+    File.write(launcher, launcher_script)
   end
 
   zap trash: [
