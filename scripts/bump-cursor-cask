@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Updates the cursor-linux cask to a new version+shas, verifying the AppImage exists first.
+# Updates the cursor-linux cask to a new version+shas.
 # Usage: bump-cursor-cask <version> <commit> <sha256_arm64> <sha256_x86_64>
 set -euo pipefail
 
@@ -13,13 +13,6 @@ CURRENT=$(awk -F'"' '/^ *version "/{print $2}' "$CASK")
 if [ "${VERSION},${COMMIT}" = "$CURRENT" ]; then
   echo "Already at ${VERSION},${COMMIT}" >&2
   exit 0
-fi
-
-URL="https://downloads.cursor.com/production/${COMMIT}/linux/x64/Cursor-${VERSION}-x86_64.AppImage"
-STATUS=$(curl -sILo /dev/null -w "%{http_code}" "$URL")
-if [ "$STATUS" != "200" ]; then
-  echo "AppImage not found at $URL (HTTP $STATUS)" >&2
-  exit 1
 fi
 
 sed -i "s/version \".*\"/version \"${VERSION},${COMMIT}\"/" "$CASK"

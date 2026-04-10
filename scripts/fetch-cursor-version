@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Fetches the latest stable Cursor version, commit hash, and SHA256s from the update API.
 # Outputs KEY=VALUE lines suitable for $GITHUB_OUTPUT or shell consumption.
+#
+# Downloads the .zsync file (tiny) for each arch to get the expected SHA-1,
+# then downloads the full AppImage and verifies SHA-1 matches before emitting
+# the SHA-256. This guards against Cursor republishing a different binary at
+# the same URL after the zsync was generated.
 set -euo pipefail
 
 API_RESPONSE=$(curl -sf "https://api2.cursor.sh/updates/api/update/linux-x64/cursor/0.0.0/stable")
@@ -16,11 +21,47 @@ if not m:
 print(m.group(1))
 ")
 
-SHA256_ARM64=$(curl -sfL "https://downloads.cursor.com/production/${COMMIT}/linux/arm64/Cursor-${VERSION}-aarch64.AppImage" \
-  | sha256sum | awk '{print $1}')
+BASE_URL="https://downloads.cursor.com/production/${COMMIT}/linux"
 
-SHA256_X86_64=$(curl -sfL "https://downloads.cursor.com/production/${COMMIT}/linux/x64/Cursor-${VERSION}-x86_64.AppImage" \
-  | sha256sum | awk '{print $1}')
+# fetch_sha256 <zsync_url> <appimage_url>
+# Downloads the zsync to extract the expected SHA-1, then downloads the
+# AppImage and verifies SHA-1 before returning the SHA-256.
+fetch_sha256() {
+  local zsync_url=$1 appimage_url=$2
+
+  local expected_sha1
+  expected_sha1=$(curl -sfL "$zsync_url" | awk '/^SHA-1: /{gsub(/\r/,""); sub(/^SHA-1: /,""); print; exit}')
+  if [[ -z "$expected_sha1" ]]; then
+    echo "Failed to extract SHA-1 from zsync: $zsync_url" >&2
+    return 1
+  fi
+
+  (
+    tmpfile=$(mktemp)
+    trap 'rm -f "$tmpfile"' EXIT
+
+    curl -sfL -o "$tmpfile" "$appimage_url"
+
+    actual_sha1=$(sha1sum "$tmpfile" | awk '{print $1}')
+    if [[ "$actual_sha1" != "$expected_sha1" ]]; then
+      echo "SHA-1 mismatch for $appimage_url" >&2
+      echo "  zsync expects: $expected_sha1" >&2
+      echo "  actual:        $actual_sha1" >&2
+      echo "Cursor may be mid-republish; try again later." >&2
+      exit 1
+    fi
+
+    sha256sum "$tmpfile" | awk '{print $1}'
+  )
+}
+
+SHA256_ARM64=$(fetch_sha256 \
+  "${BASE_URL}/arm64/Cursor-${VERSION}-aarch64.AppImage.zsync" \
+  "${BASE_URL}/arm64/Cursor-${VERSION}-aarch64.AppImage")
+
+SHA256_X86_64=$(fetch_sha256 \
+  "${BASE_URL}/x64/Cursor-${VERSION}-x86_64.AppImage.zsync" \
+  "${BASE_URL}/x64/Cursor-${VERSION}-x86_64.AppImage")
 
 echo "VERSION=${VERSION}"
 echo "COMMIT=${COMMIT}"
