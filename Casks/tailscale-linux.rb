@@ -25,16 +25,9 @@ cask "tailscale-linux" do
       #!/bin/bash
       set -euo pipefail
 
-      # Self-escalate to root (avoids sudo secure_path not including Homebrew bin)
-      if [ "$(id -u)" -ne 0 ]; then
-        exec sudo "$(readlink -f "$0")" "$@"
-      fi
-
       HOMEBREW_PREFIX="#{HOMEBREW_PREFIX}"
       SERVICE_TEMPLATE="${HOMEBREW_PREFIX}/share/tailscale/tailscaled.service.upstream"
       DEFAULTS_SOURCE="${HOMEBREW_PREFIX}/share/tailscale/tailscaled.defaults"
-      TARGET_SERVICE="/etc/systemd/system/tailscaled.service"
-      TARGET_DEFAULTS="/etc/default/tailscaled"
 
       if [ ! -f "$SERVICE_TEMPLATE" ]; then
         echo "Error: upstream service file not found at $SERVICE_TEMPLATE" >&2
@@ -42,43 +35,41 @@ cask "tailscale-linux" do
         exit 1
       fi
 
+      # Prompt for sudo credentials upfront
+      sudo -v
+
       # Copy binaries to /var/lib/tailscale/bin/ so systemd can execute them.
       # Homebrew lives under /home which has SELinux type user_home_t —
       # systemd (init_t) cannot traverse those directories.
       # /usr/ is read-only on bootc, so /var/lib/ is the writable alternative.
-      mkdir -p /var/lib/tailscale/bin
-      install -m 0755 "$(readlink -f "${HOMEBREW_PREFIX}/bin/tailscaled")" /var/lib/tailscale/bin/tailscaled
-      install -m 0755 "$(readlink -f "${HOMEBREW_PREFIX}/bin/tailscale")" /var/lib/tailscale/bin/tailscale
-      chcon -t bin_t /var/lib/tailscale/bin/tailscaled /var/lib/tailscale/bin/tailscale 2>/dev/null || true
+      sudo mkdir -p /var/lib/tailscale/bin
+      sudo install -m 0755 "$(readlink -f "${HOMEBREW_PREFIX}/bin/tailscaled")" /var/lib/tailscale/bin/tailscaled
+      sudo install -m 0755 "$(readlink -f "${HOMEBREW_PREFIX}/bin/tailscale")" /var/lib/tailscale/bin/tailscale
+      sudo chcon -t bin_t /var/lib/tailscale/bin/tailscaled /var/lib/tailscale/bin/tailscale 2>/dev/null || true
 
       # Patch binary paths to use /var/lib/ copies
       sed "s|/usr/sbin/tailscaled|/var/lib/tailscale/bin/tailscaled|g" \\
-        "$SERVICE_TEMPLATE" > "$TARGET_SERVICE"
+        "$SERVICE_TEMPLATE" | sudo tee /etc/systemd/system/tailscaled.service >/dev/null
 
       # Install defaults file if not already present (preserves user customizations)
-      if [ ! -f "$TARGET_DEFAULTS" ]; then
-        mkdir -p /etc/default
-        cp "$DEFAULTS_SOURCE" "$TARGET_DEFAULTS"
+      if [ ! -f /etc/default/tailscaled ]; then
+        sudo mkdir -p /etc/default
+        sudo cp "$DEFAULTS_SOURCE" /etc/default/tailscaled
       fi
 
-      systemctl daemon-reload
-      systemctl enable --now tailscaled
+      sudo systemctl daemon-reload
+      sudo systemctl enable --now tailscaled
       # Restart if already running (picks up new binaries after upgrade)
       if systemctl is-active --quiet tailscaled; then
-        systemctl restart tailscaled
+        sudo systemctl restart tailscaled
       fi
 
-      if [ -n "${SUDO_USER:-}" ]; then
-        sleep 2
-        if /var/lib/tailscale/bin/tailscale set --operator="$SUDO_USER" 2>/dev/null; then
-          echo "Tailscale enabled. Operator set to $SUDO_USER."
-        else
-          echo "Tailscale enabled."
-          echo "Note: could not set operator automatically. Run 'sudo tailscale set --operator=$SUDO_USER' manually."
-        fi
+      sleep 2
+      if sudo /var/lib/tailscale/bin/tailscale set --operator="$USER" 2>/dev/null; then
+        echo "Tailscale enabled. Operator set to $USER."
       else
         echo "Tailscale enabled."
-        echo "Warning: \\$SUDO_USER not set. Run 'sudo tailscale set --operator=YOUR_USER' manually."
+        echo "Note: could not set operator automatically. Run 'sudo tailscale set --operator=$USER' manually."
       fi
       echo "Run 'tailscale up' to authenticate."
     SCRIPT
@@ -88,21 +79,16 @@ cask "tailscale-linux" do
       #!/bin/bash
       set -euo pipefail
 
-      # Self-escalate to root (avoids sudo secure_path not including Homebrew bin)
-      if [ "$(id -u)" -ne 0 ]; then
-        exec sudo "$(readlink -f "$0")" "$@"
-      fi
-
       if ! systemctl is-enabled tailscaled &>/dev/null; then
         echo "Tailscale service is not enabled, nothing to do."
         exit 0
       fi
 
-      systemctl stop tailscaled
-      systemctl disable tailscaled
-      rm -f /etc/systemd/system/tailscaled.service
-      rm -rf /var/lib/tailscale/bin
-      systemctl daemon-reload
+      sudo systemctl stop tailscaled
+      sudo systemctl disable tailscaled
+      sudo rm -f /etc/systemd/system/tailscaled.service
+      sudo rm -rf /var/lib/tailscale/bin
+      sudo systemctl daemon-reload
 
       echo "Tailscale service stopped and disabled."
       echo "Note: /var/lib/tailscale/ (node identity) and /etc/default/tailscaled (config) preserved."
@@ -132,7 +118,12 @@ cask "tailscale-linux" do
   EOS
 
   uninstall_preflight do
-    system "chmod", "+x", "#{staged_path}/tailscale-disable"
-    system "sudo", "#{staged_path}/tailscale-disable"
+    if system("systemctl", "is-enabled", "--quiet", "tailscaled")
+      system "sudo", "systemctl", "stop", "tailscaled"
+      system "sudo", "systemctl", "disable", "tailscaled"
+    end
+    system "sudo", "rm", "-f", "/etc/systemd/system/tailscaled.service"
+    system "sudo", "rm", "-rf", "/var/lib/tailscale/bin"
+    system "sudo", "systemctl", "daemon-reload"
   end
 end
