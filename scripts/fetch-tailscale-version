@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Fetches the latest stable Tailscale version and SHA256s.
+# Uses GitHub API for version detection and pkgs.tailscale.com .sha256 endpoints for checksums.
+# Outputs KEY=VALUE lines suitable for $GITHUB_OUTPUT or shell consumption.
+set -euo pipefail
+
+VERSION=$(curl -sf "https://api.github.com/repos/tailscale/tailscale/releases/latest" \
+  | python3 -c "import sys, json; print(json.load(sys.stdin)['tag_name'].lstrip('v'))")
+
+# Fetch checksums from pkgs.tailscale.com (also serves as availability check)
+SHA256_ARM64=$(curl -sf "https://pkgs.tailscale.com/stable/tailscale_${VERSION}_arm64.tgz.sha256")
+SHA256_X86_64=$(curl -sf "https://pkgs.tailscale.com/stable/tailscale_${VERSION}_amd64.tgz.sha256")
+
+if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Invalid version format: ${VERSION}" >&2
+  exit 1
+fi
+
+if ! [[ "$SHA256_ARM64" =~ ^[0-9a-f]{64}$ ]] || ! [[ "$SHA256_X86_64" =~ ^[0-9a-f]{64}$ ]]; then
+  echo "Invalid or missing checksums for v${VERSION}" >&2
+  exit 1
+fi
+
+echo "VERSION=${VERSION}"
+echo "SHA256_ARM64=${SHA256_ARM64}"
+echo "SHA256_X86_64=${SHA256_X86_64}"
