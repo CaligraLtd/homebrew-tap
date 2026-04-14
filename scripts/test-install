@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 # Test cask installation in a Fedora container (mirrors Caligra Workbench).
 #
@@ -19,7 +19,12 @@ args=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --host)  HOST=true; shift ;;
-    --image) IMAGE="$2"; shift 2 ;;
+    --image)
+      if [ $# -lt 2 ]; then
+        echo "Error: --image requires a value" >&2
+        exit 1
+      fi
+      IMAGE="$2"; shift 2 ;;
     *)       args+=("$1"); shift ;;
   esac
 done
@@ -65,8 +70,8 @@ dnf install -y \
 
 echo ""
 echo "=== Setting up Homebrew ==="
-groupadd -r linuxbrew
-useradd -M -s /bin/bash -d /home/linuxbrew -g linuxbrew linuxbrew
+getent group linuxbrew >/dev/null || groupadd -r linuxbrew
+id -u linuxbrew &>/dev/null || useradd -M -s /bin/bash -d /home/linuxbrew -g linuxbrew linuxbrew
 mkdir -p /home/linuxbrew
 chown linuxbrew:linuxbrew /home/linuxbrew
 
@@ -84,15 +89,16 @@ chmod -R g+wX /home/linuxbrew
 chmod g+s /home/linuxbrew/.linuxbrew
 
 # Create test user in linuxbrew group (matches package-brew Containerfile)
-useradd -m -s /bin/bash brewci
-usermod -aG linuxbrew brewci
-echo "brewci ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/brewci
+id -u brewci &>/dev/null || useradd -m -s /bin/bash brewci
+groups brewci | grep -q linuxbrew || usermod -aG linuxbrew brewci
+install -m 0440 /dev/null /etc/sudoers.d/brewci
+echo "brewci ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/brewci
 
 # Link the tap checkout into Homebrew
 BREW_REPO=$(/home/linuxbrew/.linuxbrew/bin/brew --repository)
 TAP_DIR="$BREW_REPO/Library/Taps/caligraltd/homebrew-tap"
 mkdir -p "$(dirname "$TAP_DIR")"
-ln -s "$REPO_ROOT" "$TAP_DIR"
+ln -sf "$REPO_ROOT" "$TAP_DIR"
 chown -h root:linuxbrew "$TAP_DIR"
 
 # Install each cask as the test user

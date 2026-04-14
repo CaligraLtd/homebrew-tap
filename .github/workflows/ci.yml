@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'Casks/*.rb'
+      - '.github/workflows/ci.yml'
+      - 'scripts/test-install'
   workflow_dispatch:
     inputs:
       cask:
@@ -32,7 +34,7 @@ jobs:
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            CASKS=$(git diff --name-only "$BASE_SHA" -- 'Casks/*.rb' \
+            CASKS=$(git diff --name-only --diff-filter=AM "$BASE_SHA" -- 'Casks/*.rb' \
               | sed 's|Casks/||;s|\.rb$||' | tr '\n' ' ')
           elif [ -n "$CASK_INPUT" ]; then
             CASKS="$CASK_INPUT"
