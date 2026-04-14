@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Test cask installation in a Fedora container (mirrors Caligra Workbench).
+#
+# Local (launches a container):
+#   scripts/test-install cursor-linux
+#   scripts/test-install --image fedora:latest --all
+#
+# CI or already inside a container (runs directly):
+#   scripts/test-install --host cursor-linux
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+IMAGE="fedora:42"
+HOST=false
+
+# Parse flags (order-independent: --host and --image can appear anywhere before cask names)
+args=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --host)  HOST=true; shift ;;
+    --image)
+      if [ $# -lt 2 ]; then
+        echo "Error: --image requires a value" >&2
+        exit 1
+      fi
+      IMAGE="$2"; shift 2 ;;
+    *)       args+=("$1"); shift ;;
+  esac
+done
+set -- "${args[@]+"${args[@]}"}"
+
+if [ "${1:-}" = "--all" ]; then
+  mapfile -t cask_list < <(find "$REPO_ROOT"/Casks -name '*.rb' -exec basename {} .rb \;)
+  shift
+elif [ $# -gt 0 ]; then
+  cask_list=("$@")
+else
+  echo "Usage: $0 [--host] [--image IMAGE] <cask-name>... | --all" >&2
+  exit 1
+fi
+
+# --- Container wrapper (local use) ---
+if [ "$HOST" = false ]; then
+  ENGINE="${CONTAINER_ENGINE:-$(command -v podman 2>/dev/null || command -v docker 2>/dev/null || true)}"
+  if [ -z "$ENGINE" ]; then
+    echo "Error: podman or docker required" >&2
+    exit 1
+  fi
+  echo "Testing casks: ${cask_list[*]}"
+  echo "Using: $ENGINE / $IMAGE"
+  exec "$ENGINE" run --rm \
+    --platform linux/amd64 \
+    -v "$REPO_ROOT:/tap:ro,z" \
+    "$IMAGE" \
+    /tap/scripts/test-install --host "${cask_list[@]}"
+fi
+
+# --- Running directly on host (inside container or CI) ---
+if [ ! -f /.dockerenv ] && [ ! -f /run/.containerenv ] && [ -z "${CI:-}" ]; then
+  echo "Error: --host should only be used inside a container or CI" >&2
+  exit 1
+fi
+
+echo "Testing casks: ${cask_list[*]}"
+
+echo "=== Installing system dependencies ==="
+dnf install -y \
+  git curl sudo gcc gcc-c++ make procps-ng file zstd xdg-utils
+
+echo ""
+echo "=== Setting up Homebrew ==="
+getent group linuxbrew >/dev/null || groupadd -r linuxbrew
+id -u linuxbrew &>/dev/null || useradd -M -s /bin/bash -d /home/linuxbrew -g linuxbrew linuxbrew
+mkdir -p /home/linuxbrew
+chown linuxbrew:linuxbrew /home/linuxbrew
+
+# Install Homebrew via git clone (matches build-homebrew-tarball.sh)
+su -l linuxbrew -c "
+  git clone --depth 1 https://github.com/Homebrew/brew /home/linuxbrew/.linuxbrew
+  /home/linuxbrew/.linuxbrew/bin/brew update --force --quiet
+  cd /home/linuxbrew/.linuxbrew
+  mkdir -p Caskroom Cellar include lib opt sbin share/applications share/pixmaps
+"
+
+# Production ownership model (matches package-brew Containerfile)
+chown -R root:linuxbrew /home/linuxbrew
+chmod -R g+wX /home/linuxbrew
+chmod g+s /home/linuxbrew/.linuxbrew
+
+# Create test user in linuxbrew group (matches package-brew Containerfile)
+id -u brewci &>/dev/null || useradd -m -s /bin/bash brewci
+groups brewci | grep -q linuxbrew || usermod -aG linuxbrew brewci
+install -m 0440 /dev/null /etc/sudoers.d/brewci
+echo "brewci ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/brewci
+
+# Link the tap checkout into Homebrew
+BREW_REPO=$(/home/linuxbrew/.linuxbrew/bin/brew --repository)
+TAP_DIR="$BREW_REPO/Library/Taps/caligraltd/homebrew-tap"
+mkdir -p "$(dirname "$TAP_DIR")"
+ln -sf "$REPO_ROOT" "$TAP_DIR"
+chown -h root:linuxbrew "$TAP_DIR"
+
+# Install each cask as the test user
+failed=()
+for cask in "${cask_list[@]}"; do
+  echo ""
+  echo "=== Installing $cask ==="
+  if su -l brewci -c "
+    eval \"\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\"
+    export HOMEBREW_NO_AUTO_UPDATE=1
+    brew install --cask caligraltd/tap/$cask
+  "; then
+    echo "pass: $cask"
+  else
+    echo "FAIL: $cask"
+    failed+=("$cask")
+  fi
+done
+
+echo ""
+if [ ${#failed[@]} -gt 0 ]; then
+  echo "FAILED: ${failed[*]}"
+  exit 1
+fi
+echo "All casks installed successfully"
