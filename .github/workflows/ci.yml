@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+    paths:
+      - 'Casks/*.rb'
+  workflow_dispatch:
+    inputs:
+      cask:
+        description: 'Specific cask to test (blank = all)'
+        required: false
+
+jobs:
+  test-install:
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:42
+    steps:
+      - name: Install git
+        run: dnf install -y git
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed casks
+        id: changed
+        env:
+          CASK_INPUT: ${{ inputs.cask }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            CASKS=$(git diff --name-only "$BASE_SHA" -- 'Casks/*.rb' \
+              | sed 's|Casks/||;s|\.rb$||' | tr '\n' ' ')
+          elif [ -n "$CASK_INPUT" ]; then
+            CASKS="$CASK_INPUT"
+          else
+            CASKS="--all"
+          fi
+          CASKS="${CASKS% }"
+          echo "casks=$CASKS" >> "$GITHUB_OUTPUT"
+          echo "Changed casks: $CASKS"
+
+      - name: Test cask install
+        if: steps.changed.outputs.casks != ''
+        env:
+          CASKS: ${{ steps.changed.outputs.casks }}
+        run: ./scripts/test-install --host $CASKS
