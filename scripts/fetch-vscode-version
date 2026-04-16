@@ -3,14 +3,12 @@
 # Outputs KEY=VALUE lines suitable for $GITHUB_OUTPUT or shell consumption.
 set -euo pipefail
 
-VERSION=$(curl -sf "https://update.code.visualstudio.com/api/update/linux-x64/stable/latest" \
-  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['productVersion'])")
+X64_JSON=$(curl -sf "https://update.code.visualstudio.com/api/update/linux-x64/stable/latest")
+VERSION=$(echo "$X64_JSON" | jq -r '.productVersion')
+SHA256_X86_64=$(echo "$X64_JSON" | jq -r '.sha256hash')
 
 SHA256_ARM64=$(curl -sf "https://update.code.visualstudio.com/api/update/linux-arm64/stable/latest" \
-  | python3 -c "import sys,json; print(json.load(sys.stdin)['sha256hash'])")
-
-SHA256_X86_64=$(curl -sf "https://update.code.visualstudio.com/api/update/linux-x64/stable/latest" \
-  | python3 -c "import sys,json; print(json.load(sys.stdin)['sha256hash'])")
+  | jq -r '.sha256hash')
 
 echo "VERSION=${VERSION}"
 echo "SHA256_ARM64=${SHA256_ARM64}"

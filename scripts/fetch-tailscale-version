@@ -5,7 +5,7 @@
 set -euo pipefail
 
 VERSION=$(curl -sf "https://api.github.com/repos/tailscale/tailscale/releases/latest" \
-  | python3 -c "import sys, json; print(json.load(sys.stdin)['tag_name'].lstrip('v'))")
+  | jq -r '.tag_name | ltrimstr("v")')
 
 # Fetch checksums from pkgs.tailscale.com (also serves as availability check)
 SHA256_ARM64=$(curl -sf "https://pkgs.tailscale.com/stable/tailscale_${VERSION}_arm64.tgz.sha256")

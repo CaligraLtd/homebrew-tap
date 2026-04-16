@@ -4,19 +4,7 @@
 set -euo pipefail
 
 curl -sf "https://api.github.com/repos/FrameworkComputer/framework-system/releases/latest" \
-  | python3 -c "
-import sys, json
-
-data = json.load(sys.stdin)
-version = data['tag_name'].lstrip('v')
-
-for asset in data['assets']:
-    if asset['name'] == 'framework_tool':
-        sha = asset['digest'].removeprefix('sha256:')
-        print(f'VERSION={version}')
-        print(f'SHA256={sha}')
-        sys.exit(0)
-
-print('framework_tool asset not found in release', file=sys.stderr)
-sys.exit(1)
-"
+  | jq -r '
+    "VERSION=\(.tag_name | ltrimstr("v"))",
+    "SHA256=\(.assets[] | select(.name == "framework_tool") | .digest | ltrimstr("sha256:"))"
+  '

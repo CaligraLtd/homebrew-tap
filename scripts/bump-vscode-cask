@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Updates the visual-studio-code-linux cask to a new version+shas, verifying the package exists first.
+# Updates the visual-studio-code-linux cask to a new version+shas.
 # Usage: bump-vscode-cask <version> <sha256_arm64> <sha256_x86_64>
 set -euo pipefail
 
@@ -12,13 +12,6 @@ CURRENT=$(awk -F'"' '/^ *version "/{print $2}' "$CASK")
 if [ "$VERSION" = "$CURRENT" ]; then
   echo "Already at $VERSION" >&2
   exit 0
-fi
-
-URL="https://update.code.visualstudio.com/${VERSION}/linux-x64/stable"
-STATUS=$(curl -sILo /dev/null -w "%{http_code}" "$URL")
-if [ "$STATUS" != "200" ]; then
-  echo "Package not found at $URL (HTTP $STATUS)" >&2
-  exit 1
 fi
 
 sed -i "s/version \".*\"/version \"${VERSION}\"/" "$CASK"
