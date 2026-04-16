@@ -1,4 +1,6 @@
 # Originally from https://github.com/ublue-os/homebrew-tap/blob/main/Casks/1password-gui-linux.rb
+require "etc"
+
 cask "1password-gui-linux" do
   arch intel: "x86_64", arm: "aarch64"
   os linux: "linux"
@@ -69,6 +71,54 @@ cask "1password-gui-linux" do
       as it already exists and is the same as the version to be installed."
     end
 
+    # Setup browser integration - create onepassword group and set permissions
+    # This requires sudo; if unavailable the install still succeeds but browser
+    # integration must be configured manually.
+    puts "Setting up browser integration..."
+    group_name = "onepassword"
+    install_path = "#{HOMEBREW_PREFIX}/Caskroom/1password-gui-linux/#{version}"
+    app_dir = "#{install_path}/1password-#{version}.#{arch_suffix}"
+    browser_support_path = "#{app_dir}/1Password-BrowserSupport"
+
+    # Create onepassword group if it doesn't exist
+    unless system("getent", "group", group_name, out: File::NULL, err: File::NULL)
+      system "sudo", "groupadd", group_name
+    end
+
+    browser_integration_ok =
+      system("sudo", "chown", "-R", "root:root", app_dir) &&
+      system("sudo", "chgrp", group_name, browser_support_path) &&
+      system("sudo", "chmod", "2755", browser_support_path)
+
+    # Also set root ownership on any installed Chrome versions
+    chrome_cask_dir = "#{HOMEBREW_PREFIX}/Caskroom/google-chrome-linux"
+    chrome_dirs = []
+    if Dir.exist?(chrome_cask_dir)
+      Dir.children(chrome_cask_dir).reject { |e| e.start_with?(".") }.each do |chrome_version|
+        chrome_dir = "#{chrome_cask_dir}/#{chrome_version}/opt/google/chrome"
+        next unless Dir.exist?(chrome_dir)
+
+        chrome_dirs << chrome_dir
+        browser_integration_ok &&= system("sudo", "chown", "-R", "root:root", chrome_dir)
+      end
+    end
+
+    if browser_integration_ok
+      puts "Browser integration configured. Restart your browsers to enable 1Password integration."
+    else
+      puts ""
+      puts "WARNING: Could not configure 1Password browser integration."
+      puts "Browser integration requires the application directory to be root-owned"
+      puts "and the BrowserSupport binary to have setgid permissions."
+      puts ""
+      puts "To set up manually, run:"
+      puts "  sudo groupadd #{group_name}"
+      puts "  sudo chown -R root:root #{app_dir}"
+      puts "  sudo chgrp #{group_name} #{browser_support_path}"
+      puts "  sudo chmod 2755 #{browser_support_path}"
+      chrome_dirs.each { |dir| puts "  sudo chown -R root:root #{dir}" }
+    end
+
     File.write("#{staged_path}/zpass.sh", <<~EOS)
       #!/bin/bash
       zenity --password --title="Homebrew Sudo Password Prompt"
@@ -90,6 +140,19 @@ cask "1password-gui-linux" do
   end
 
   uninstall_preflight do
+    # Change ownership back to allow homebrew to clean up
+    install_path = "#{HOMEBREW_PREFIX}/Caskroom/1password-gui-linux/#{version}"
+    app_dir = "#{install_path}/1password-#{version}.#{arch_suffix}"
+    if Dir.exist?(app_dir) && File.stat(app_dir).uid == 0
+      current_user = Etc.getpwuid(Process.uid).name
+      current_group = Etc.getgrgid(Process.gid).name
+      unless system "sudo", "chown", "-R", "#{current_user}:#{current_group}", app_dir
+        puts "WARNING: Could not restore ownership on #{app_dir}."
+        puts "Homebrew uninstall/upgrade may fail. Run manually:"
+        puts "  sudo chown -R #{current_user}:#{current_group} #{app_dir}"
+      end
+    end
+
     system "chmod", "+x", "#{staged_path}/1password-uninstall.sh"
     system "#{staged_path}/1password-uninstall.sh"
   end
