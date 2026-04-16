@@ -1,3 +1,5 @@
+require "etc"
+
 cask "google-chrome-linux" do
   version "147.0.7727.101"
   sha256 "ccea6441a2085b7b788a724a770446f4f9111e0a3abc0e19b58608d6859703f8"
@@ -82,6 +84,38 @@ cask "google-chrome-linux" do
     BASH
     launcher_script.sub!('exec -a "$0"', "#{patch_block}exec -a \"$0\"")
     File.write(launcher, launcher_script)
+  end
+
+  postflight do
+    # Make Chrome installation directory root-owned for 1Password browser integration.
+    # Only runs when 1Password is installed — no reason to require sudo otherwise.
+    if Dir.exist?("#{HOMEBREW_PREFIX}/Caskroom/1password-gui-linux")
+      chrome_dir = "#{HOMEBREW_PREFIX}/Caskroom/google-chrome-linux/#{version}/opt/google/chrome"
+      if system("sudo", "chown", "-R", "root:root", chrome_dir)
+        puts "Set Chrome directory to root ownership for 1Password integration"
+      else
+        puts ""
+        puts "WARNING: Could not set Chrome directory to root ownership."
+        puts "1Password browser integration requires Chrome to be in a tamper-proof location."
+        puts ""
+        puts "To set up manually, run:"
+        puts "  sudo chown -R root:root #{chrome_dir}"
+      end
+    end
+  end
+
+  uninstall_preflight do
+    # Restore ownership if directory is root-owned (from 1Password integration setup)
+    chrome_dir = "#{HOMEBREW_PREFIX}/Caskroom/google-chrome-linux/#{version}/opt/google/chrome"
+    if File.exist?(chrome_dir) && File.stat(chrome_dir).uid == 0
+      current_user = Etc.getpwuid(Process.uid).name
+      current_group = Etc.getgrgid(Process.gid).name
+      unless system "sudo", "chown", "-R", "#{current_user}:#{current_group}", chrome_dir
+        puts "WARNING: Could not restore ownership on #{chrome_dir}."
+        puts "Homebrew uninstall/upgrade may fail. Run manually:"
+        puts "  sudo chown -R #{current_user}:#{current_group} #{chrome_dir}"
+      end
+    end
   end
 
   zap trash: [
