@@ -66,7 +66,7 @@ echo "Testing casks: ${cask_list[*]}"
 
 echo "=== Installing system dependencies ==="
 dnf install -y \
-  git curl sudo gcc gcc-c++ make procps-ng file zstd xdg-utils
+  git curl sudo gcc gcc-c++ make procps-ng file zstd xdg-utils cpio
 
 echo ""
 echo "=== Setting up Homebrew ==="
