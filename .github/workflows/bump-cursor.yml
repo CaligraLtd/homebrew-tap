@@ -2,7 +2,7 @@ name: Bump Cursor
 
 on:
   schedule:
-    - cron: "0 8 * * *" # Daily at 08:00 UTC
+    - cron: "0 */8 * * *" # Every 8 hours at 00:00, 08:00, 16:00 UTC
   workflow_dispatch:
 
 permissions:
