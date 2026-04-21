@@ -10,8 +10,12 @@ SHA256_X86_64="${4:?usage: bump-cursor-cask <version> <commit> <sha256_arm64> <s
 CASK="Casks/cursor-linux.rb"
 
 CURRENT=$(awk -F'"' '/^ *version "/{print $2}' "$CASK")
-if [ "${VERSION},${COMMIT}" = "$CURRENT" ]; then
-  echo "Already at ${VERSION},${COMMIT}" >&2
+CURRENT_SHA_ARM64=$(awk -F'"' '/arm64_linux: *"/{print $2}' "$CASK")
+CURRENT_SHA_X86_64=$(awk -F'"' '/x86_64_linux: *"/{print $2}' "$CASK")
+if [ "${VERSION},${COMMIT}" = "$CURRENT" ] \
+  && [ "$SHA256_ARM64" = "$CURRENT_SHA_ARM64" ] \
+  && [ "$SHA256_X86_64" = "$CURRENT_SHA_X86_64" ]; then
+  echo "Already at ${VERSION},${COMMIT} with matching SHAs" >&2
   exit 0
 fi
 
