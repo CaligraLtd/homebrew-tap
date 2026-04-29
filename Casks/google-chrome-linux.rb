@@ -20,8 +20,11 @@ cask "google-chrome-linux" do
            target: "#{HOMEBREW_PREFIX}/share/pixmaps/google-chrome.png"
 
   preflight do
-    # Extract RPM package
-    system "sh", "-c", "cd #{staged_path} && rpm2cpio google-chrome-stable-#{version}-1.x86_64.rpm | cpio -idmv 2>/dev/null"
+    system_command "bash",
+                   args: ["-o", "pipefail", "-c",
+                          "rpm2cpio google-chrome-stable-#{version}-1.x86_64.rpm | cpio -idm"],
+                   chdir: staged_path,
+                   must_succeed: true
 
     # Copy icon
     icon_source = "#{staged_path}/opt/google/chrome/product_logo_256.png"
