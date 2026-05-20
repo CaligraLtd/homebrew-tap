@@ -30,8 +30,6 @@ cask "visual-studio-code-linux" do
            target: "#{Dir.home}/.local/share/applications/code-url-handler.desktop"
   artifact "VSCode-linux-#{arch}/resources/app/resources/linux/code.png",
            target: "#{Dir.home}/.local/share/icons/vscode.png"
-  artifact "settings.json",
-           target: "#{Dir.home}/.config/Code/User/settings.json"
 
   preflight do
     FileUtils.mkdir_p "#{Dir.home}/.local/share/applications"
@@ -79,15 +77,18 @@ cask "visual-studio-code-linux" do
       MimeType=x-scheme-handler/vscode;
       Keywords=vscode;
     EOS
-    
-    # Enable native window decorations by default
-    settings = {
-      "window.titleBarStyle" => "native",
-    }
+  end
 
-    require "json"
-    settings_path = "#{staged_path}/settings.json"
-    File.write(settings_path, JSON.pretty_generate(settings))
+  postflight do
+    # Seed default settings only on first install so user edits survive upgrades.
+    settings_path = "#{Dir.home}/.config/Code/User/settings.json"
+    unless File.exist?(settings_path)
+      FileUtils.mkdir_p(File.dirname(settings_path))
+      require "json"
+      File.write(settings_path, JSON.pretty_generate({
+        "window.titleBarStyle" => "native",
+      }))
+    end
   end
 
   zap trash: [
