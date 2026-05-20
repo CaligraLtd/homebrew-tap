@@ -22,14 +22,11 @@ cask "zed-linux" do
            target: "#{Dir.home}/.local/share/icons/hicolor/512x512/apps/zed.png"
   artifact "zed.app/share/icons/hicolor/1024x1024/apps/zed.png",
            target: "#{Dir.home}/.local/share/icons/hicolor/1024x1024/apps/zed.png"
-  artifact "settings.json",
-           target: "#{Dir.home}/.config/zed/settings.json"
 
   preflight do
     FileUtils.mkdir_p("#{Dir.home}/.local/share/applications")
     FileUtils.mkdir_p("#{Dir.home}/.local/share/icons/hicolor/512x512/apps")
     FileUtils.mkdir_p("#{Dir.home}/.local/share/icons/hicolor/1024x1024/apps")
-    FileUtils.mkdir_p("#{Dir.home}/.config/zed")
 
     File.write("#{staged_path}/dev.zed.Zed.desktop", <<~EOS)
       [Desktop Entry]
@@ -51,18 +48,25 @@ cask "zed-linux" do
       Exec=#{HOMEBREW_PREFIX}/bin/zed --new %U
       Name=Open a new workspace
     EOS
+  end
 
-    require "json"
-    File.write("#{staged_path}/settings.json", JSON.pretty_generate({
-      "ui_font_family" => "Söhne",
-      "buffer_font_family" => "Söhne Mono",
-      "ui_font_features" => { "zero" => true, "ss02" => true },
-      "buffer_font_features" => { "zero" => true, "ss02" => true },
-      "ui_font_size" => 16,
-      "buffer_font_size" => 15,
-      "theme" => { "mode" => "system", "light" => "One Light", "dark" => "One Dark" },
-      "window_decorations" => "server",
-    }))
+  postflight do
+    # Seed default settings only on first install so user edits survive upgrades.
+    settings_path = "#{Dir.home}/.config/zed/settings.json"
+    unless File.exist?(settings_path)
+      FileUtils.mkdir_p(File.dirname(settings_path))
+      require "json"
+      File.write(settings_path, JSON.pretty_generate({
+        "ui_font_family" => "Söhne",
+        "buffer_font_family" => "Söhne Mono",
+        "ui_font_features" => { "zero" => true, "ss02" => true },
+        "buffer_font_features" => { "zero" => true, "ss02" => true },
+        "ui_font_size" => 16,
+        "buffer_font_size" => 15,
+        "theme" => { "mode" => "system", "light" => "One Light", "dark" => "One Dark" },
+        "window_decorations" => "server",
+      }))
+    end
   end
 
   zap trash: [
