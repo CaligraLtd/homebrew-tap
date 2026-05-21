@@ -5,9 +5,9 @@ cask "1password-gui-linux" do
   arch intel: "x86_64", arm: "aarch64"
   os linux: "linux"
 
-  version "8.12.12"
-  sha256 arm64_linux:  "44dc193aaaf6f5a2e0349607ffae931442822b701506193eaa749ac7e63b0e5e",
-         x86_64_linux: "b5d86e0497825db7a90cde99f58aacea013994c521ef6b0e26e412bf84288f53"
+  version "8.12.21"
+  sha256 arm64_linux:  "cd8da1c1200d82918b1a1fea39751b6362656673695c1cb2b00819be7b92f907",
+         x86_64_linux: "f933641c3f8210e0c8989ab1b2f60ed34f1462a380cab1697d789a239cd8b83b"
 
   arch_suffix =
     case arch
