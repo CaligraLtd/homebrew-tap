@@ -20,6 +20,12 @@ cask "microsoft-core-fonts-linux" do
     font_dir = "#{Dir.home}/.local/share/fonts/msttcore"
     FileUtils.mkdir_p(font_dir)
 
+    # Brew installs cask deps before formula deps, so `cabextract` is not yet on
+    # PATH when this postflight runs as a transitive dep of another cask. Install
+    # it now if missing; a redundant call is a fast no-op.
+    cabextract = "#{HOMEBREW_PREFIX}/bin/cabextract"
+    system "#{HOMEBREW_PREFIX}/bin/brew", "install", "cabextract" unless File.executable?(cabextract)
+
     script = "#{staged_path}/usr/lib/msttcore-fonts-installer/refresh-msttcore-fonts.sh"
     raise "refresh-msttcore-fonts.sh not found in RPM" unless File.exist?(script)
 
