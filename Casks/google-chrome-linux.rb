@@ -12,6 +12,7 @@ cask "google-chrome-linux" do
 
   depends_on arch: :x86_64
   depends_on cask: "caligraltd/tap/microsoft-core-fonts-linux"
+  depends_on cask: "font-noto-color-emoji"
 
   binary "#{staged_path}/opt/google/chrome/google-chrome"
   binary "#{staged_path}/opt/google/chrome/google-chrome", target: "google-chrome-stable"
