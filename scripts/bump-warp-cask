@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Updates the warp-linux cask to a new version+shas, verifying both RPMs exist first.
+# Usage: bump-warp-cask <version> <sha256_arm64> <sha256_x86_64>
+set -euo pipefail
+
+VERSION="${1:?usage: bump-warp-cask <version> <sha256_arm64> <sha256_x86_64>}"
+SHA256_ARM64="${2:?usage: bump-warp-cask <version> <sha256_arm64> <sha256_x86_64>}"
+SHA256_X86_64="${3:?usage: bump-warp-cask <version> <sha256_arm64> <sha256_x86_64>}"
+CASK="Casks/warp-linux.rb"
+
+CURRENT=$(awk -F'"' '/^ *version "/{print $2}' "$CASK")
+if [ "$VERSION" = "$CURRENT" ]; then
+  echo "Already at $VERSION" >&2
+  exit 0
+fi
+
+for ARCH in aarch64 x86_64; do
+  URL="https://releases.warp.dev/stable/v${VERSION}/warp-terminal-v${VERSION}-1.${ARCH}.rpm"
+  STATUS=$(curl -sILo /dev/null -w "%{http_code}" "$URL")
+  if [ "$STATUS" != "200" ]; then
+    echo "RPM not found at $URL (HTTP $STATUS)" >&2
+    exit 1
+  fi
+done
+
+sed -i "s/version \".*\"/version \"${VERSION}\"/" "$CASK"
+sed -i 's/\(arm64_linux: *"\)[^"]*"/\1'"${SHA256_ARM64}"'"/' "$CASK"
+sed -i 's/\(x86_64_linux: *"\)[^"]*"/\1'"${SHA256_X86_64}"'"/' "$CASK"
+
+echo "CHANGED=true"
+echo "$CURRENT -> $VERSION" >&2
