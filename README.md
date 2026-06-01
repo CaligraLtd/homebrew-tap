@@ -20,6 +20,7 @@ brew install --cask 1password-gui-linux
 brew install --cask cursor-linux
 brew install --cask framework-tool-linux
 brew install --cask visual-studio-code-linux
+brew install --cask warp-linux
 ```
 
 ## Development

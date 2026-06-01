@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Fetches the latest stable warp-terminal version and per-arch SHA256s from the
+# upstream rpm repository metadata. Outputs KEY=VALUE lines suitable for
+# $GITHUB_OUTPUT or shell consumption. No package downloads — only metadata.
+set -euo pipefail
+
+REPO="https://releases.warp.dev/linux/rpm/stable"
+
+primary_href=$(
+  curl -fsSL "${REPO}/repodata/repomd.xml" |
+    python3 -c '
+import sys, xml.etree.ElementTree as ET
+ns = {"r": "http://linux.duke.edu/metadata/repo"}
+tree = ET.parse(sys.stdin)
+for d in tree.findall("r:data", ns):
+    if d.attrib.get("type") == "primary":
+        print(d.find("r:location", ns).attrib["href"])
+        break
+'
+)
+
+if [ -z "${primary_href}" ]; then
+  echo "Could not locate primary.xml in repomd.xml" >&2
+  exit 1
+fi
+
+curl -fsSL "${REPO}/${primary_href}" |
+  zstd -dc |
+  python3 -c '
+import sys, xml.etree.ElementTree as ET
+ns = {"c": "http://linux.duke.edu/metadata/common"}
+tree = ET.parse(sys.stdin)
+out = {}
+for pkg in tree.findall("c:package", ns):
+    if pkg.find("c:name", ns).text != "warp-terminal":
+        continue
+    arch = pkg.find("c:arch", ns).text
+    ver = pkg.find("c:version", ns).attrib["ver"].lstrip("v")
+    sha = pkg.find("c:checksum", ns).text
+    out[arch] = (ver, sha)
+if "x86_64" not in out or "aarch64" not in out:
+    sys.exit("warp-terminal not present for both arches in primary.xml")
+x = out["x86_64"]
+a = out["aarch64"]
+print(f"VERSION={x[0]}")
+print(f"SHA256_X86_64={x[1]}")
+print(f"SHA256_ARM64={a[1]}")
+'
