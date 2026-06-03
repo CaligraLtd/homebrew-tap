@@ -1,8 +1,8 @@
 require "etc"
 
 cask "google-chrome-linux" do
-  version "148.0.7778.215"
-  sha256 "057adadb109ab44fb91ababfc2f31776563d808651ea26cd38b0f90ae56448e6"
+  version "149.0.7827.53"
+  sha256 "3b178d690a4b3cff89090d0da4dcdda132271a20ccffc995b4df3a7ffced37fa"
   os linux: "linux"
 
   url "https://dl.google.com/linux/chrome/rpm/stable/x86_64/google-chrome-stable-#{version}-1.x86_64.rpm"
