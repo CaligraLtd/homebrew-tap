@@ -11,7 +11,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-IMAGE="fedora:42"
+IMAGE="fedora:43"
 HOST=false
 
 # Parse flags (order-independent: --host and --image can appear anywhere before cask names)
