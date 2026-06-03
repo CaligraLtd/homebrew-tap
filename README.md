@@ -14,6 +14,7 @@ brew tap CaligraLtd/homebrew-tap
 
 ```bash
 brew install --cask google-chrome-linux
+brew install --cask signal-desktop-linux
 
 ## the following casks originate from https://github.com/ublue-os/homebrew-experimental-tap & https://github.com/ublue-os/homebrew-tap
 brew install --cask 1password-gui-linux
