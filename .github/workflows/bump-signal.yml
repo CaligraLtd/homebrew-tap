@@ -1,0 +1,51 @@
+name: Bump Signal
+
+on:
+  schedule:
+    - cron: "0 8 * * *" # Daily at 08:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: bump-signal
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Fetch latest Signal version
+        id: fetch
+        run: ./scripts/fetch-signal-version >> "$GITHUB_OUTPUT"
+
+      - name: Bump cask
+        id: bump
+        run: ./scripts/bump-signal-cask "${{ steps.fetch.outputs.VERSION }}" "${{ steps.fetch.outputs.SHA256 }}" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update bump PR
+        if: steps.bump.outputs.CHANGED == 'true'
+        id: cpr
+        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_PAT }}
+          author: cholotes <cholotes@caligra.com>
+          committer: cholotes <cholotes@caligra.com>
+          commit-message: "chore(signal): bump to ${{ steps.fetch.outputs.VERSION }}"
+          title: "chore(signal): bump to ${{ steps.fetch.outputs.VERSION }}"
+          body: |
+            Automated version bump for Signal Desktop ${{ steps.fetch.outputs.VERSION }}.
+          branch: auto/signal
+          delete-branch: true
+          add-paths: |
+            Casks/signal-desktop-linux.rb
+
+      - name: Enable auto-merge
+        if: steps.cpr.outputs.pull-request-number != ''
+        run: gh pr merge --auto --merge "${{ steps.cpr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ github.token }}

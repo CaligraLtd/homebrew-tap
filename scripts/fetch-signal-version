@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Fetches the latest STABLE signal-desktop version and SHA256 from Signal's apt
+# repository metadata. Outputs KEY=VALUE lines suitable for $GITHUB_OUTPUT or
+# shell consumption.
+#
+# The Packages file interleaves `signal-desktop` and `signal-desktop-beta`, and
+# beta releases carry a `~beta` suffix; both are filtered out here.
+set -euo pipefail
+
+PACKAGES="https://updates.signal.org/desktop/apt/dists/xenial/main/binary-amd64/Packages"
+
+curl -fsSL "$PACKAGES" | python3 -c '
+import sys, re
+
+records = sys.stdin.read().split("\n\n")
+best = None
+for rec in records:
+    fields = dict(re.findall(r"^([\w-]+):\s*(.*)$", rec, re.M))
+    if fields.get("Package") != "signal-desktop":
+        continue
+    ver = fields.get("Version", "")
+    if "beta" in ver:
+        continue
+    key = tuple(int(x) for x in re.findall(r"\d+", ver))
+    if best is None or key > best[0]:
+        best = (key, ver, fields.get("SHA256", ""))
+
+if best is None or not best[2]:
+    sys.exit("stable signal-desktop not found in apt Packages metadata")
+
+print(f"VERSION={best[1]}")
+print(f"SHA256={best[2]}")
+'
