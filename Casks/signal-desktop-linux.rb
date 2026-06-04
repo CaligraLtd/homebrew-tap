@@ -1,8 +1,8 @@
 cask "signal-desktop-linux" do
   os linux: "linux"
 
-  version "8.12.0"
-  sha256 "3419d24f883fcdad84357b0df8b1a19b5bc1b0fc767c17db76d0e2c4123036e4"
+  version "8.13.0"
+  sha256 "d34ac77a0429852a81ef4dfc325c775ab32c2df769ef3299db8dd010eb04a58a"
 
   # Signal ships Linux only as an amd64 .deb from its apt repo.
   # The stable pool path is `pool/s/signal-desktop/`; beta lives
