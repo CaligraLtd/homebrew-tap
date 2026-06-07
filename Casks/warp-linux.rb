@@ -1,9 +1,9 @@
 cask "warp-linux" do
   arch arm: "aarch64", intel: "x86_64"
 
-  version "0.2026.05.27.15.44.stable_01"
-  sha256 arm64_linux:  "ca25291f7f7df147844b7f8012a393a7a2d3a2b6491a2865bac9cb16c807bdfd",
-         x86_64_linux: "7755a61dc48f8d305de274850f361861543d8ac88c3b081ed5928db397990aa3"
+  version "0.2026.06.03.09.49.stable_01"
+  sha256 arm64_linux:  "cb7fd08d375d92a8737d3bb504bced8f9ab5e64b3247bdd0fb58dc2e9988db71",
+         x86_64_linux: "9f63e964b15170c6396c75e2e510676da2b34168d51cd917b7d22a38f5ddbc0b"
 
   url "https://releases.warp.dev/stable/v#{version}/warp-terminal-v#{version}-1.#{arch}.rpm",
       verified: "releases.warp.dev/"
