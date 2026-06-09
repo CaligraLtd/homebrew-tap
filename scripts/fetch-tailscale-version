@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Fetches the latest stable Tailscale version and SHA256s.
-# Uses GitHub API for version detection and pkgs.tailscale.com .sha256 endpoints for checksums.
+# Uses the pkgs.tailscale.com stable index as the single source of truth for both
+# version and checksums, so they never drift (GitHub's latest release can lead the
+# published tarballs by a patch release).
 # Outputs KEY=VALUE lines suitable for $GITHUB_OUTPUT or shell consumption.
 set -euo pipefail
 
-VERSION=$(curl -sf "https://api.github.com/repos/tailscale/tailscale/releases/latest" \
-  | jq -r '.tag_name | ltrimstr("v")')
+VERSION=$(curl -sf "https://pkgs.tailscale.com/stable/?mode=json" \
+  | jq -r '.TarballsVersion')
 
 # Fetch checksums from pkgs.tailscale.com (also serves as availability check)
 SHA256_ARM64=$(curl -sf "https://pkgs.tailscale.com/stable/tailscale_${VERSION}_arm64.tgz.sha256")
