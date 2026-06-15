@@ -101,6 +101,11 @@ mkdir -p "$(dirname "$TAP_DIR")"
 ln -sf "$REPO_ROOT" "$TAP_DIR"
 chown -h root:linuxbrew "$TAP_DIR"
 
+su -l brewci -c "
+  eval \"\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\"
+  brew trust caligraltd/tap
+"
+
 # Install each cask as the test user
 failed=()
 for cask in "${cask_list[@]}"; do
