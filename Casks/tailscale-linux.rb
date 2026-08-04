@@ -1,9 +1,9 @@
 cask "tailscale-linux" do
   arch arm: "arm64", intel: "amd64"
 
-  version "1.98.10"
-  sha256 arm64_linux:  "d74a84e07cb1948d9f09a23ae161417c6127e562949773705c95d0762be2809d",
-         x86_64_linux: "52490ce0832b245857e2afef7426d6ae5a4b49fb391412833cc95729bd23f7de"
+  version "1.102.1"
+  sha256 arm64_linux:  "43973827540d8a4db44b6b662037e8e75c98a2797cef1ce76d214becc48c470c",
+         x86_64_linux: "4eab0d2c268ec1f81dc50a5ef9805ea993fc08dc52ede5a6d8ddd44ef6f9df0f"
 
   url "https://pkgs.tailscale.com/stable/tailscale_#{version}_#{arch}.tgz"
   name "Tailscale"
