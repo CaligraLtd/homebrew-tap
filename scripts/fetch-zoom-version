@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Fetches the latest Zoom Workplace for Linux version and its SHA256. Outputs
+# KEY=VALUE lines suitable for $GITHUB_OUTPUT or shell consumption.
+#
+# Zoom publishes no checksums and no repository metadata, so the RPM has
+# to be downloaded and hashed.
+#
+# Requires rpmkeys, from the rpm package.
+set -euo pipefail
+
+# Zoom Communications, Inc. <CryptoOpsCodeSignProd@zoom.us>, served from
+# https://zoom.us/linux/download/pubkey. The script will fail if Zoom rotates the key.
+KEY_FINGERPRINT="84c365d6cc9a4886ca926bcc4f2197399706ac24"
+
+command -v rpmkeys >/dev/null || {
+  echo "rpmkeys is required to verify the Zoom package signature" >&2
+  exit 1
+}
+
+VERSION=$(curl -fsSL "https://zoom.us/rest/download?os=linux" |
+  jq -er '.result.downloadVO.zoom.version') || {
+  echo "no Linux client version in Zoom download API response" >&2
+  exit 1
+}
+
+WORKDIR=$(mktemp -d)
+trap 'rm -rf "$WORKDIR"' EXIT
+
+RPM="${WORKDIR}/zoom_x86_64.rpm"
+curl -fsSL "https://cdn.zoom.us/prod/${VERSION}/zoom_x86_64.rpm" -o "$RPM"
+curl -fsSL "https://zoom.us/linux/download/pubkey" -o "${WORKDIR}/pubkey.asc"
+
+rpm --dbpath "${WORKDIR}/rpmdb" --initdb
+rpmkeys --dbpath "${WORKDIR}/rpmdb" --import "${WORKDIR}/pubkey.asc"
+
+# The exit code covers the digests, the grep pins which key signed it.
+CHECKSIG=$(rpmkeys --dbpath "${WORKDIR}/rpmdb" --checksig -v "$RPM" 2>&1) || {
+  echo "signature check failed for zoom_x86_64.rpm ${VERSION}:" >&2
+  echo "$CHECKSIG" >&2
+  exit 1
+}
+
+if ! grep -qi "key fingerprint: ${KEY_FINGERPRINT}: OK" <<<"$CHECKSIG"; then
+  echo "zoom_x86_64.rpm ${VERSION} is not signed by ${KEY_FINGERPRINT}:" >&2
+  echo "$CHECKSIG" >&2
+  exit 1
+fi
+
+SHA256=$(sha256sum "$RPM" | awk '{print $1}')
+
+echo "VERSION=${VERSION}"
+echo "SHA256=${SHA256}"
