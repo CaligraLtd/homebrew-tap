@@ -57,6 +57,21 @@ cask "zoom-linux" do
   end
 
   postflight do
+    # Use Workbench's window decorations
+    conf = "#{Dir.home}/.config/zoomus.conf"
+    text = File.exist?(conf) ? File.read(conf) : "[General]\n"
+
+    text = if text.match?(/^showSystemTitlebar=/)
+      text.sub(/^showSystemTitlebar=.*$/, "showSystemTitlebar=true")
+    elsif text.match?(/^\[General\]$/)
+      text.sub(/^\[General\]$/, "[General]\nshowSystemTitlebar=true")
+    else
+      "#{text.chomp}\n\n[General]\nshowSystemTitlebar=true\n"
+    end
+
+    FileUtils.mkdir_p File.dirname(conf)
+    File.write(conf, text)
+
     # Meetings open through a zoommtg:// link in the browser.
     apps_dir = "#{Dir.home}/.local/share/applications"
     system_command "/bin/sh",
