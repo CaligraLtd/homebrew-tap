@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Updates the zoom-linux cask to a new version+sha, verifying the RPM exists first.
+# Usage: bump-zoom-cask <version> <sha256>
+set -euo pipefail
+
+VERSION="${1:?usage: bump-zoom-cask <version> <sha256>}"
+SHA256="${2:?usage: bump-zoom-cask <version> <sha256>}"
+CASK="Casks/zoom-linux.rb"
+
+CURRENT=$(awk -F'"' '/^ *version "/{print $2}' "$CASK")
+if [ "$VERSION" = "$CURRENT" ]; then
+  echo "Already at $VERSION" >&2
+  exit 0
+fi
+
+# Verify the versioned RPM exists (no -f so curl doesn't exit non-zero on 4xx)
+URL="https://cdn.zoom.us/prod/${VERSION}/zoom_x86_64.rpm"
+STATUS=$(curl -sILo /dev/null -w "%{http_code}" "$URL")
+if [ "$STATUS" != "200" ]; then
+  echo "RPM not found at $URL (HTTP $STATUS)" >&2
+  exit 1
+fi
+
+sed -i "s/version \".*\"/version \"${VERSION}\"/" "$CASK"
+sed -i "s/sha256 \".*\"/sha256 \"${SHA256}\"/" "$CASK"
+
+echo "CHANGED=true"
+echo "$CURRENT -> $VERSION" >&2
