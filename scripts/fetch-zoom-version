@@ -5,17 +5,19 @@
 # Zoom publishes no checksums and no repository metadata, so the RPM has
 # to be downloaded and hashed.
 #
-# Requires rpmkeys, from the rpm package.
+# Requires rpmkeys, from the rpm package, and gpg.
 set -euo pipefail
 
 # Zoom Communications, Inc. <CryptoOpsCodeSignProd@zoom.us>, served from
 # https://zoom.us/linux/download/pubkey. The script will fail if Zoom rotates the key.
 KEY_FINGERPRINT="84c365d6cc9a4886ca926bcc4f2197399706ac24"
 
-command -v rpmkeys >/dev/null || {
-  echo "rpmkeys is required to verify the Zoom package signature" >&2
-  exit 1
-}
+for tool in rpmkeys gpg; do
+  command -v "$tool" >/dev/null || {
+    echo "$tool is required to verify the Zoom package signature" >&2
+    exit 1
+  }
+done
 
 VERSION=$(curl -fsSL "https://zoom.us/rest/download?os=linux" |
   jq -er '.result.downloadVO.zoom.version') || {
@@ -30,17 +32,29 @@ RPM="${WORKDIR}/zoom_x86_64.rpm"
 curl -fsSL "https://cdn.zoom.us/prod/${VERSION}/zoom_x86_64.rpm" -o "$RPM"
 curl -fsSL "https://zoom.us/linux/download/pubkey" -o "${WORKDIR}/pubkey.asc"
 
+# rpm only names the short key ID in its output before 6.0, so the pin lives
+# here: the keyring seeded into the throwaway rpmdb must hold the pinned key and
+# nothing else. Subkey fingerprints are skipped, only the primary key is pinned.
+PRIMARY_FINGERPRINT=$(gpg --show-keys --with-colons "${WORKDIR}/pubkey.asc" 2>/dev/null |
+  awk -F: '$1 == "pub" { p = 1 } $1 == "fpr" && p { print tolower($10); p = 0 }') || true
+
+if [ "$PRIMARY_FINGERPRINT" != "$KEY_FINGERPRINT" ]; then
+  echo "zoom pubkey is ${PRIMARY_FINGERPRINT:-unreadable}, expected ${KEY_FINGERPRINT}" >&2
+  exit 1
+fi
+
 rpm --dbpath "${WORKDIR}/rpmdb" --initdb
 rpmkeys --dbpath "${WORKDIR}/rpmdb" --import "${WORKDIR}/pubkey.asc"
 
-# The exit code covers the digests, the grep pins which key signed it.
+# Non-zero covers both the digests and an unknown signing key (NOKEY). The grep
+# is belt and braces; rpm 4.x prints the key ID, rpm 6.x the full fingerprint.
 CHECKSIG=$(rpmkeys --dbpath "${WORKDIR}/rpmdb" --checksig -v "$RPM" 2>&1) || {
   echo "signature check failed for zoom_x86_64.rpm ${VERSION}:" >&2
   echo "$CHECKSIG" >&2
   exit 1
 }
 
-if ! grep -qi "key fingerprint: ${KEY_FINGERPRINT}: OK" <<<"$CHECKSIG"; then
+if ! grep -qiE "key (id ${KEY_FINGERPRINT: -8}|fingerprint: ${KEY_FINGERPRINT}): OK" <<<"$CHECKSIG"; then
   echo "zoom_x86_64.rpm ${VERSION} is not signed by ${KEY_FINGERPRINT}:" >&2
   echo "$CHECKSIG" >&2
   exit 1

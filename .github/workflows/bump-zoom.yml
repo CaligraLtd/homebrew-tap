@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Install rpm
-        run: command -v rpmkeys >/dev/null || (sudo apt-get update && sudo apt-get install -y rpm)
+        run: command -v rpmkeys >/dev/null && command -v gpg >/dev/null || (sudo apt-get update && sudo apt-get install -y rpm gnupg)
 
       - name: Fetch latest Zoom version
         id: fetch
