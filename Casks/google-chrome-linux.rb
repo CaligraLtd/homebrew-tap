@@ -17,9 +17,9 @@ cask "google-chrome-linux" do
   binary "#{staged_path}/opt/google/chrome/google-chrome"
   binary "#{staged_path}/opt/google/chrome/google-chrome", target: "google-chrome-stable"
   artifact "google-chrome.desktop",
-           target: "#{HOMEBREW_PREFIX}/share/applications/google-chrome.desktop"
+           target: "#{Dir.home}/.local/share/applications/google-chrome.desktop"
   artifact "google-chrome.png",
-           target: "#{HOMEBREW_PREFIX}/share/pixmaps/google-chrome.png"
+           target: "#{Dir.home}/.local/share/icons/hicolor/256x256/apps/google-chrome.png"
 
   preflight do
     system_command "bash",
@@ -42,7 +42,8 @@ cask "google-chrome-linux" do
     # Replace /usr/bin/google-chrome-stable with Homebrew path
     new_contents = text.gsub(%r{/usr/bin/google-chrome-stable}, "#{HOMEBREW_PREFIX}/bin/google-chrome")
     # Update icon path to use the one we copied
-    new_contents = new_contents.gsub(/Icon=.*/, "Icon=#{HOMEBREW_PREFIX}/share/pixmaps/google-chrome.png")
+    new_contents = new_contents.sub(/^Icon=.*$/,
+                                    "Icon=#{Dir.home}/.local/share/icons/hicolor/256x256/apps/google-chrome.png")
     File.write("#{staged_path}/google-chrome.desktop", new_contents)
 
     # Set up initial preferences for Caligra Workbench
@@ -116,9 +117,8 @@ cask "google-chrome-linux" do
       current_user = Etc.getpwuid(Process.uid).name
       current_group = Etc.getgrgid(Process.gid).name
       unless system "sudo", "chown", "-R", "#{current_user}:#{current_group}", chrome_dir
-        puts "WARNING: Could not restore ownership on #{chrome_dir}."
-        puts "Homebrew uninstall/upgrade may fail. Run manually:"
-        puts "  sudo chown -R #{current_user}:#{current_group} #{chrome_dir}"
+        raise "Could not restore ownership on #{chrome_dir}; leaving the installed version untouched. " \
+              "Run `sudo chown -R #{current_user}:#{current_group} #{chrome_dir}` and retry."
       end
     end
   end
