@@ -1,5 +1,6 @@
 # Originally from https://github.com/ublue-os/homebrew-tap/blob/main/Casks/1password-gui-linux.rb
 require "etc"
+require "shellwords"
 
 cask "1password-gui-linux" do
   arch intel: "x86_64", arm: "aarch64"
@@ -37,124 +38,101 @@ cask "1password-gui-linux" do
            target: "#{Dir.home}/.local/share/applications/1password.desktop"
   artifact "1password-#{version}.#{arch_suffix}/resources/icons/hicolor/256x256/apps/1password.png",
            target: "#{Dir.home}/.local/share/icons/1password.png"
-  artifact "1password-#{version}.#{arch_suffix}/com.1password.1Password.policy.tpl",
-           target: "#{HOMEBREW_PREFIX}/etc/polkit-1/actions/com.1password.1Password.policy"
 
   preflight do
     desktop_file = "#{staged_path}/1password-#{version}.#{arch_suffix}/resources/1password.desktop"
-    text = File.read(desktop_file)
-    new_contents = text.gsub("Exec=/opt/1Password/1password", "Exec=#{HOMEBREW_PREFIX}/bin/1password")
-    File.write(desktop_file, new_contents)
+    File.write(desktop_file,
+               File.read(desktop_file)
+                   .gsub("Exec=/opt/1Password/1password", "Exec=#{HOMEBREW_PREFIX}/bin/1password"))
   end
 
   postflight do
-    system "echo", "Installing polkit policy file to /etc/polkit-1/actions/, you may be prompted for your password."
-    if !File.exist?("/etc/polkit-1/actions/com.1password.1Password.policy") ||
-       !FileUtils.identical?("#{staged_path}/1password-#{version}.#{arch_suffix}/com.1password.1Password.policy.tpl",
-                             "/etc/polkit-1/actions/com.1password.1Password.policy")
-
-      # Get users from /etc/passwd and output first 10 human users (1000 >= UID <= 9999) to the policy file
-      # format: `unix-user:username` space separated
-      # This is used to allow these users to unlock 1Password via polkit.
-      human_users = `awk -F: '$3 >= 1000 && $3 <= 9999 && $1 != "nobody" { print $1 }' /etc/passwd`
-                    .split("\n").first(10)
-      policy_owners = human_users.map { |user| "unix-user:#{user}" }.join(" ")
-      policy_file = File.read("#{staged_path}/1password-#{version}.#{arch_suffix}/com.1password.1Password.policy.tpl")
-      replaced_contents = policy_file.gsub("${POLICY_OWNERS}", policy_owners)
-      File.write("#{staged_path}/1password-#{version}.#{arch_suffix}/com.1password.1Password.policy", replaced_contents)
-      system "sudo", "install", "-Dm0644",
-             "#{staged_path}/1password-#{version}.#{arch_suffix}/com.1password.1Password.policy",
-             "/etc/polkit-1/actions/com.1password.1Password.policy"
-      puts "Installed /etc/polkit-1/actions/com.1password.1Password.policy"
-    else
-      puts "Skipping installation of /etc/polkit-1/actions/com.1password.1Password.policy,
-      as it already exists and is the same as the version to be installed."
-    end
-
-    # Setup browser integration - create onepassword group and set permissions
-    # This requires sudo; if unavailable the install still succeeds but browser
-    # integration must be configured manually.
-    puts "Setting up browser integration..."
-    group_name = "onepassword"
-    install_path = "#{HOMEBREW_PREFIX}/Caskroom/1password-gui-linux/#{version}"
-    app_dir = "#{install_path}/1password-#{version}.#{arch_suffix}"
+    app_dir = "#{HOMEBREW_PREFIX}/Caskroom/1password-gui-linux/#{version}/1password-#{version}.#{arch_suffix}"
     browser_support_path = "#{app_dir}/1Password-BrowserSupport"
+    policy_template = "#{staged_path}/1password-#{version}.#{arch_suffix}/com.1password.1Password.policy.tpl"
+    policy_target = "/etc/polkit-1/actions/com.1password.1Password.policy"
+    group_name = "onepassword"
 
-    # Create onepassword group if it doesn't exist
-    unless system("getent", "group", group_name, out: File::NULL, err: File::NULL)
-      system "sudo", "groupadd", group_name
-    end
+    policy_rendered = "#{staged_path}/com.1password.1Password.policy"
+    File.write(policy_rendered,
+               File.read(policy_template)
+                   .gsub(%r{^\s*<annotate key="org\.freedesktop\.policykit\.owner">[^<]*</annotate>\s*\n}, ""))
 
-    browser_integration_ok =
-      system("sudo", "chown", "-R", "root:root", app_dir) &&
-      system("sudo", "chgrp", group_name, browser_support_path) &&
-      system("sudo", "chmod", "2755", browser_support_path)
-
-    # Also set root ownership on any installed Chrome versions
     chrome_cask_dir = "#{HOMEBREW_PREFIX}/Caskroom/google-chrome-linux"
-    chrome_dirs = []
-    if Dir.exist?(chrome_cask_dir)
-      Dir.children(chrome_cask_dir).reject { |e| e.start_with?(".") }.each do |chrome_version|
-        chrome_dir = "#{chrome_cask_dir}/#{chrome_version}/opt/google/chrome"
-        next unless Dir.exist?(chrome_dir)
-
-        chrome_dirs << chrome_dir
-        browser_integration_ok &&= system("sudo", "chown", "-R", "root:root", chrome_dir)
-      end
-    end
-
-    if browser_integration_ok
-      puts "Browser integration configured. Restart your browsers to enable 1Password integration."
-    else
-      puts ""
-      puts "WARNING: Could not configure 1Password browser integration."
-      puts "Browser integration requires the application directory to be root-owned"
-      puts "and the BrowserSupport binary to have setgid permissions."
-      puts ""
-      puts "To set up manually, run:"
-      puts "  sudo groupadd #{group_name}"
-      puts "  sudo chown -R root:root #{app_dir}"
-      puts "  sudo chgrp #{group_name} #{browser_support_path}"
-      puts "  sudo chmod 2755 #{browser_support_path}"
-      chrome_dirs.each { |dir| puts "  sudo chown -R root:root #{dir}" }
-    end
-
-    File.write("#{staged_path}/zpass.sh", <<~EOS)
-      #!/bin/bash
-      zenity --password --title="Homebrew Sudo Password Prompt"
-    EOS
-
-    File.write("#{staged_path}/1password-uninstall.sh", <<~EOS)
-      #!/bin/bash
-      set -e
-
-      SUDO_ASKPASS=#{staged_path}/zpass.sh
-      echo "Uninstalling polkit policy file from /etc/polkit-1/actions/com.1password.1Password.policy"
-      if [ -f /etc/polkit-1/actions/com.1password.1Password.policy ]; then
-        sudo rm -f /etc/polkit-1/actions/com.1password.1Password.policy
-        echo "Removed /etc/polkit-1/actions/com.1password.1Password.policy"
+    chrome_dirs =
+      if Dir.exist?(chrome_cask_dir)
+        Dir.children(chrome_cask_dir)
+           .reject { |e| e.start_with?(".") }
+           .map { |v| "#{chrome_cask_dir}/#{v}/opt/google/chrome" }
+           .select { |d| Dir.exist?(d) }
       else
-        echo "/etc/polkit-1/actions/com.1password.1Password.policy does not exist, skipping."
-      fi
-    EOS
+        []
+      end
+
+    chrome_lines = chrome_dirs.map { |d| "chown -R root:root #{d.shellescape}" }.join("\n")
+
+    privileged_script = "#{staged_path}/caligra-1password-setup.sh"
+    File.write(privileged_script, <<~SH)
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      getent group #{group_name.shellescape} >/dev/null || groupadd --system #{group_name.shellescape}
+      install -Dm0644 #{policy_rendered.shellescape} #{policy_target.shellescape}
+      chown -R root:root #{app_dir.shellescape}
+      chgrp #{group_name.shellescape} #{browser_support_path.shellescape}
+      chmod 2755 #{browser_support_path.shellescape}
+      #{chrome_lines}
+    SH
+    FileUtils.chmod(0755, privileged_script)
+
+    ohai "Configuring 1Password polkit policy and browser integration (sudo required)"
+    if system("sudo", "--", "bash", privileged_script)
+      ohai "Browser integration configured. Restart your browsers to enable it."
+    else
+      opoo <<~MSG
+        Could not configure 1Password polkit policy or browser integration.
+        To finish setup manually:
+          sudo bash #{privileged_script}
+      MSG
+    end
   end
 
   uninstall_preflight do
-    # Change ownership back to allow homebrew to clean up
-    install_path = "#{HOMEBREW_PREFIX}/Caskroom/1password-gui-linux/#{version}"
-    app_dir = "#{install_path}/1password-#{version}.#{arch_suffix}"
-    if Dir.exist?(app_dir) && File.stat(app_dir).uid == 0
-      current_user = Etc.getpwuid(Process.uid).name
-      current_group = Etc.getgrgid(Process.gid).name
-      unless system "sudo", "chown", "-R", "#{current_user}:#{current_group}", app_dir
-        puts "WARNING: Could not restore ownership on #{app_dir}."
-        puts "Homebrew uninstall/upgrade may fail. Run manually:"
-        puts "  sudo chown -R #{current_user}:#{current_group} #{app_dir}"
-      end
-    end
+    app_dir = "#{HOMEBREW_PREFIX}/Caskroom/1password-gui-linux/#{version}/1password-#{version}.#{arch_suffix}"
+    policy_target = "/etc/polkit-1/actions/com.1password.1Password.policy"
 
-    system "chmod", "+x", "#{staged_path}/1password-uninstall.sh"
-    system "#{staged_path}/1password-uninstall.sh"
+    needs_chown = Dir.exist?(app_dir) && File.stat(app_dir).uid.zero?
+    needs_policy_removal = File.exist?(policy_target)
+
+    next if !needs_chown && !needs_policy_removal
+
+    current_user = Etc.getpwuid(Process.uid).name
+    current_group = Etc.getgrgid(Process.gid).name
+    owner = "#{current_user.shellescape}:#{current_group.shellescape}"
+
+    chown_line = "chown -R #{owner} #{app_dir.shellescape}" if needs_chown
+    rm_line = "rm -f -- #{policy_target.shellescape}" if needs_policy_removal
+
+    privileged_script = "#{staged_path}/caligra-1password-teardown.sh"
+    File.write(privileged_script, <<~SH)
+      #!/usr/bin/env bash
+      set -euo pipefail
+      #{chown_line}
+      #{rm_line}
+    SH
+    FileUtils.chmod(0755, privileged_script)
+
+    ohai "Cleaning up 1Password privileged state (sudo required)"
+    next if system("sudo", "--", "bash", privileged_script)
+
+    fallback = []
+    fallback << "  sudo chown -R #{current_user}:#{current_group} #{app_dir}" if needs_chown
+    fallback << "  sudo rm -f -- #{policy_target}" if needs_policy_removal
+    raise <<~MSG
+      Failed to clean up 1Password privileged state.
+      Run the following and retry the uninstall/upgrade:
+      #{fallback.join("\n")}
+    MSG
   end
 
   zap trash: [
