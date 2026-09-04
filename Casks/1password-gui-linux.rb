@@ -37,13 +37,14 @@ cask "1password-gui-linux" do
   artifact "1password-#{version}.#{arch_suffix}/resources/1password.desktop",
            target: "#{Dir.home}/.local/share/applications/1password.desktop"
   artifact "1password-#{version}.#{arch_suffix}/resources/icons/hicolor/256x256/apps/1password.png",
-           target: "#{Dir.home}/.local/share/icons/1password.png"
+           target: "#{Dir.home}/.local/share/icons/hicolor/256x256/apps/1password.png"
 
   preflight do
     desktop_file = "#{staged_path}/1password-#{version}.#{arch_suffix}/resources/1password.desktop"
     File.write(desktop_file,
                File.read(desktop_file)
-                   .gsub("Exec=/opt/1Password/1password", "Exec=#{HOMEBREW_PREFIX}/bin/1password"))
+                   .gsub("Exec=/opt/1Password/1password", "Exec=#{HOMEBREW_PREFIX}/bin/1password")
+                   .sub(/^Icon=.*$/, "Icon=#{Dir.home}/.local/share/icons/hicolor/256x256/apps/1password.png"))
   end
 
   postflight do
