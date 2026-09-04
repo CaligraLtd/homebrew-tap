@@ -42,8 +42,8 @@ cask "google-chrome-linux" do
     # Replace /usr/bin/google-chrome-stable with Homebrew path
     new_contents = text.gsub(%r{/usr/bin/google-chrome-stable}, "#{HOMEBREW_PREFIX}/bin/google-chrome")
     # Update icon path to use the one we copied
-    new_contents = new_contents.gsub(/Icon=.*/,
-                                     "Icon=#{Dir.home}/.local/share/icons/hicolor/256x256/apps/google-chrome.png")
+    new_contents = new_contents.sub(/^Icon=.*$/,
+                                    "Icon=#{Dir.home}/.local/share/icons/hicolor/256x256/apps/google-chrome.png")
     File.write("#{staged_path}/google-chrome.desktop", new_contents)
 
     # Set up initial preferences for Caligra Workbench

@@ -93,7 +93,7 @@ cask "1password-gui-linux" do
       opoo <<~MSG
         Could not configure 1Password polkit policy or browser integration.
         To finish setup manually:
-          sudo bash #{privileged_script}
+          sudo bash #{privileged_script.shellescape}
       MSG
     end
   end
@@ -127,8 +127,8 @@ cask "1password-gui-linux" do
     next if system("sudo", "--", "bash", privileged_script)
 
     fallback = []
-    fallback << "  sudo chown -R #{current_user}:#{current_group} #{app_dir}" if needs_chown
-    fallback << "  sudo rm -f -- #{policy_target}" if needs_policy_removal
+    fallback << "  sudo chown -R #{owner} #{app_dir.shellescape}" if needs_chown
+    fallback << "  sudo rm -f -- #{policy_target.shellescape}" if needs_policy_removal
     raise <<~MSG
       Failed to clean up 1Password privileged state.
       Run the following and retry the uninstall/upgrade:
