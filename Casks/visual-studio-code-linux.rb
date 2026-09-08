@@ -20,25 +20,27 @@ cask "visual-studio-code-linux" do
     end
   end
 
-  binary "VSCode-linux-#{arch}/bin/code"
-  binary "VSCode-linux-#{arch}/bin/code-tunnel"
-  bash_completion "#{staged_path}/VSCode-linux-#{arch}/resources/completions/bash/code"
-  zsh_completion  "#{staged_path}/VSCode-linux-#{arch}/resources/completions/zsh/_code"
-  artifact "VSCode-linux-#{arch}/code.desktop",
+  vscode_dir = "VSCode-linux-#{arch}"
+
+  binary "#{vscode_dir}/bin/code"
+  binary "#{vscode_dir}/bin/code-tunnel"
+  bash_completion "#{staged_path}/#{vscode_dir}/resources/completions/bash/code"
+  zsh_completion  "#{staged_path}/#{vscode_dir}/resources/completions/zsh/_code"
+  artifact "#{vscode_dir}/code.desktop",
            target: "#{Dir.home}/.local/share/applications/code.desktop"
-  artifact "VSCode-linux-#{arch}/code-url-handler.desktop",
+  artifact "#{vscode_dir}/code-url-handler.desktop",
            target: "#{Dir.home}/.local/share/applications/code-url-handler.desktop"
-  artifact "VSCode-linux-#{arch}/resources/app/resources/linux/code.png",
+  artifact "#{vscode_dir}/resources/app/resources/linux/code.png",
            target: "#{Dir.home}/.local/share/icons/vscode.png"
 
-  preflight do
-    FileUtils.mkdir_p "#{Dir.home}/.local/share/applications"
-    File.write("#{staged_path}/VSCode-linux-#{arch}/code.desktop", <<~EOS)
+  preflight_steps do
+    mkdir_p ".local/share/applications", base: :home
+    write_file "#{vscode_dir}/code.desktop", <<~EOS
       [Desktop Entry]
       Name=Visual Studio Code
       Comment=Code Editing. Redefined.
       GenericName=Text Editor
-      Exec=#{HOMEBREW_PREFIX}/bin/code %F
+      Exec={{HOMEBREW_PREFIX}}/bin/code %F
       Icon=#{Dir.home}/.local/share/icons/vscode.png
       Type=Application
       StartupNotify=false
@@ -60,15 +62,15 @@ cask "visual-studio-code-linux" do
       Name[ru]=Новое пустое окно
       Name[zh_CN]=新建空窗口
       Name[zh_TW]=開新空視窗
-      Exec=#{HOMEBREW_PREFIX}/bin/code --new-window %F
+      Exec={{HOMEBREW_PREFIX}}/bin/code --new-window %F
       Icon=#{Dir.home}/.local/share/icons/vscode.png
     EOS
-    File.write("#{staged_path}/VSCode-linux-#{arch}/code-url-handler.desktop", <<~EOS)
+    write_file "#{vscode_dir}/code-url-handler.desktop", <<~EOS
       [Desktop Entry]
       Name=Visual Studio Code - URL Handler
       Comment=Code Editing. Redefined.
       GenericName=Text Editor
-      Exec=#{HOMEBREW_PREFIX}/bin/code --open-url %U
+      Exec={{HOMEBREW_PREFIX}}/bin/code --open-url %U
       Icon=#{Dir.home}/.local/share/icons/vscode.png
       Type=Application
       NoDisplay=true
@@ -79,15 +81,14 @@ cask "visual-studio-code-linux" do
     EOS
   end
 
-  postflight do
+  postflight_steps do
     # Seed default settings only on first install so user edits survive upgrades.
-    settings_path = "#{Dir.home}/.config/Code/User/settings.json"
-    unless File.exist?(settings_path)
-      FileUtils.mkdir_p(File.dirname(settings_path))
-      require "json"
-      File.write(settings_path, JSON.pretty_generate({
-        "window.titleBarStyle" => "native",
-      }))
+    unless_path_exists ".config/Code/User/settings.json", base: :home do
+      write_file ".config/Code/User/settings.json", <<~JSON, base: :home
+        {
+          "window.titleBarStyle": "native"
+        }
+      JSON
     end
   end
 
