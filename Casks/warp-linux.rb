@@ -18,23 +18,21 @@ cask "warp-linux" do
     end
   end
 
+  rpm = "warp-terminal-v#{version}-1.#{arch}.rpm"
+  icon = "#{Dir.home}/.local/share/icons/hicolor/512x512/apps/dev.warp.Warp.png"
+
   binary "opt/warpdotdev/warp-terminal/warp", target: "warp-terminal"
   artifact "usr/share/applications/dev.warp.Warp.desktop",
            target: "#{Dir.home}/.local/share/applications/dev.warp.Warp.desktop"
   artifact "usr/share/icons/hicolor/512x512/apps/dev.warp.Warp.png",
-           target: "#{Dir.home}/.local/share/icons/hicolor/512x512/apps/dev.warp.Warp.png"
+           target: icon
 
-  preflight do
-    rpm_path = "#{staged_path}/warp-terminal-v#{version}-1.#{arch}.rpm"
-    system_command "/bin/sh",
-                   args:  ["-c", "rpm2cpio #{rpm_path.shellescape} | cpio -idm --quiet"],
-                   chdir: staged_path
-
-    desktop_file = "#{staged_path}/usr/share/applications/dev.warp.Warp.desktop"
-    content = File.read(desktop_file)
-    content.sub!(/^Exec=.*$/, "Exec=#{HOMEBREW_PREFIX}/bin/warp-terminal %U")
-    content.sub!(/^Icon=.*$/, "Icon=#{Dir.home}/.local/share/icons/hicolor/512x512/apps/dev.warp.Warp.png")
-    File.write(desktop_file, content)
+  preflight_steps do
+    run "/bin/sh", args: ["-c", "rpm2cpio #{rpm} | cpio -idm --quiet"], chdir: "."
+    run "sed", args: ["-i",
+                      "-e", "0,/^Exec=/s|^Exec=.*|Exec={{HOMEBREW_PREFIX}}/bin/warp-terminal %U|",
+                      "-e", "0,/^Icon=/s|^Icon=.*|Icon=#{icon}|",
+                      "usr/share/applications/dev.warp.Warp.desktop"], chdir: "."
   end
 
   zap trash: [
