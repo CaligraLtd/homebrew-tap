@@ -23,32 +23,27 @@ cask "signal-desktop-linux" do
 
   depends_on arch: :x86_64
 
+  icon = "#{Dir.home}/.local/share/icons/hicolor/512x512/apps/signal-desktop.png"
+
   binary "#{staged_path}/opt/Signal/signal-desktop", target: "signal-desktop"
   artifact "signal-desktop.desktop",
            target: "#{Dir.home}/.local/share/applications/signal-desktop.desktop"
   artifact "usr/share/icons/hicolor/512x512/apps/signal-desktop.png",
-           target: "#{Dir.home}/.local/share/icons/hicolor/512x512/apps/signal-desktop.png"
+           target: icon
 
-  preflight do
+  preflight_steps do
     # A .deb is an `ar` archive wrapping data.tar.xz. Homebrew leaves the package
     # file in place (no auto-unpack), so extract it ourselves into staged_path.
-    deb = "#{staged_path}/signal-desktop_#{version}_amd64.deb"
-    system_command "/bin/sh",
-                   args:         ["-c", "ar x #{deb.shellescape} && tar -xf data.tar.xz"],
-                   chdir:        staged_path,
-                   must_succeed: true
+    run "/bin/sh", args: ["-c", "ar x signal-desktop_{{version}}_amd64.deb && tar -xf data.tar.xz"], chdir: "."
 
-    FileUtils.mkdir_p "#{Dir.home}/.local/share/applications"
-    FileUtils.mkdir_p "#{Dir.home}/.local/share/icons/hicolor/512x512/apps"
+    mkdir_p ".local/share/applications", base: :home
+    mkdir_p ".local/share/icons/hicolor/512x512/apps", base: :home
 
-    # Repoint Exec at the Homebrew shim and Icon at the installed absolute path.
-    desktop_file = "#{staged_path}/usr/share/applications/signal-desktop.desktop"
-    raise "Signal desktop file not found in package" unless File.exist?(desktop_file)
-
-    text = File.read(desktop_file)
-    text.sub!(/^Exec=.*$/, "Exec=#{HOMEBREW_PREFIX}/bin/signal-desktop %U")
-    text.sub!(/^Icon=.*$/, "Icon=#{Dir.home}/.local/share/icons/hicolor/512x512/apps/signal-desktop.png")
-    File.write("#{staged_path}/signal-desktop.desktop", text)
+    copy "usr/share/applications/signal-desktop.desktop", "signal-desktop.desktop"
+    run "sed", args: ["-i",
+                      "-e", "0,/^Exec=/s|^Exec=.*|Exec={{HOMEBREW_PREFIX}}/bin/signal-desktop %U|",
+                      "-e", "0,/^Icon=/s|^Icon=.*|Icon=#{icon}|",
+                      "signal-desktop.desktop"], chdir: "."
   end
 
   zap trash: [
