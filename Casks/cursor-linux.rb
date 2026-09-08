@@ -7,8 +7,7 @@ cask "cursor-linux" do
   sha256 arm64_linux:  "6b68999a0a3ba6dbf7cd7d094960597ecdbe135421283374b1ff15286f3c59b5",
          x86_64_linux: "b9ec1e26de767323da056ad6b1b2fba3a4233213a1752de0ebf575afff063bc9"
 
-  url "https://downloads.cursor.com/production/#{version.csv.second}/linux/#{arch}/Cursor-#{version.csv.first}-#{file_arch}.AppImage",
-      verified: "downloads.cursor.com/"
+  url "https://downloads.cursor.com/production/#{version.csv.second}/linux/#{arch}/Cursor-#{version.csv.first}-#{file_arch}.AppImage"
   name "Cursor"
   desc "Write, edit, and chat about your code with AI"
   homepage "https://www.cursor.com/"

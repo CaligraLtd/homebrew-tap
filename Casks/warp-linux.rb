@@ -5,8 +5,7 @@ cask "warp-linux" do
   sha256 arm64_linux:  "b4640f9cbd1ccfdd4cc7a7ee6111447eb45ab347662c746e5009d4e8ac588d37",
          x86_64_linux: "774f585ca3d926275d2e26694c4ed625ae114ff12857771c7fbf58459cc398ed"
 
-  url "https://releases.warp.dev/stable/v#{version}/warp-terminal-v#{version}-1.#{arch}.rpm",
-      verified: "releases.warp.dev/"
+  url "https://releases.warp.dev/stable/v#{version}/warp-terminal-v#{version}-1.#{arch}.rpm"
   name "Warp"
   desc "Rust-based terminal for developers and teams"
   homepage "https://www.warp.dev/"
