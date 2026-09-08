@@ -18,14 +18,14 @@ cask "tailscale-linux" do
   binary "tailscale_#{version}_#{arch}/tailscale"
   binary "tailscale_#{version}_#{arch}/tailscaled"
 
-  preflight do
-    FileUtils.mkdir_p("#{HOMEBREW_PREFIX}/share/tailscale")
+  preflight_steps do
+    mkdir_p "{{HOMEBREW_PREFIX}}/share/tailscale"
 
-    File.write("#{staged_path}/tailscale-enable", <<~SCRIPT)
+    write_file "tailscale-enable", <<~SCRIPT
       #!/bin/bash
       set -euo pipefail
 
-      HOMEBREW_PREFIX="#{HOMEBREW_PREFIX}"
+      HOMEBREW_PREFIX="{{HOMEBREW_PREFIX}}"
       SERVICE_TEMPLATE="${HOMEBREW_PREFIX}/share/tailscale/tailscaled.service.upstream"
       DEFAULTS_SOURCE="${HOMEBREW_PREFIX}/share/tailscale/tailscaled.defaults"
 
@@ -73,9 +73,9 @@ cask "tailscale-linux" do
       fi
       echo "Run 'tailscale up' to authenticate."
     SCRIPT
-    FileUtils.chmod(0o755, "#{staged_path}/tailscale-enable")
+    set_permissions "tailscale-enable", "0755"
 
-    File.write("#{staged_path}/tailscale-disable", <<~SCRIPT)
+    write_file "tailscale-disable", <<~SCRIPT
       #!/bin/bash
       set -euo pipefail
 
@@ -93,7 +93,7 @@ cask "tailscale-linux" do
       echo "Tailscale service stopped and disabled."
       echo "Note: /var/lib/tailscale/ (node identity) and /etc/default/tailscaled (config) preserved."
     SCRIPT
-    FileUtils.chmod(0o755, "#{staged_path}/tailscale-disable")
+    set_permissions "tailscale-disable", "0755"
   end
 
   binary "tailscale-enable"
@@ -117,13 +117,13 @@ cask "tailscale-linux" do
     After upgrading, re-run 'tailscale-enable' to install the new binaries.
   EOS
 
-  uninstall_preflight do
-    if system("systemctl", "is-enabled", "--quiet", "tailscaled")
-      system "sudo", "systemctl", "stop", "tailscaled"
-      system "sudo", "systemctl", "disable", "tailscaled"
+  uninstall_preflight_steps do
+    if_path_exists "/etc/systemd/system/tailscaled.service" do
+      run "systemctl", args: ["stop", "tailscaled"], sudo: true, must_succeed: false
+      run "systemctl", args: ["disable", "tailscaled"], sudo: true, must_succeed: false
     end
-    system "sudo", "rm", "-f", "/etc/systemd/system/tailscaled.service"
-    system "sudo", "rm", "-rf", "/var/lib/tailscale/bin"
-    system "sudo", "systemctl", "daemon-reload"
+    run "rm", args: ["-f", "/etc/systemd/system/tailscaled.service"], sudo: true, must_succeed: false
+    run "rm", args: ["-rf", "/var/lib/tailscale/bin"], sudo: true, must_succeed: false
+    run "systemctl", args: ["daemon-reload"], sudo: true, must_succeed: false
   end
 end
