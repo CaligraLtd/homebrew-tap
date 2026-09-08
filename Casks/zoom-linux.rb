@@ -4,8 +4,7 @@ cask "zoom-linux" do
   version "7.2.1.5760"
   sha256 "79b6fc1ffd9fd2e2d136e898aed9c8ed6ab672a83841de4220ca4c14005d76fd"
 
-  url "https://cdn.zoom.us/prod/#{version}/zoom_x86_64.rpm",
-      verified: "cdn.zoom.us/prod/"
+  url "https://cdn.zoom.us/prod/#{version}/zoom_x86_64.rpm"
   name "Zoom Workplace"
   desc "Video communication and virtual meeting platform"
   homepage "https://zoom.us/"

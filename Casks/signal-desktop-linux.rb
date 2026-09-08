@@ -7,8 +7,7 @@ cask "signal-desktop-linux" do
   # Signal ships Linux only as an amd64 .deb from its apt repo.
   # The stable pool path is `pool/s/signal-desktop/`; beta lives
   # under `pool/main/s/signal-desktop-beta/`.
-  url "https://updates.signal.org/desktop/apt/pool/s/signal-desktop/signal-desktop_#{version}_amd64.deb",
-      verified: "updates.signal.org/"
+  url "https://updates.signal.org/desktop/apt/pool/s/signal-desktop/signal-desktop_#{version}_amd64.deb"
   name "Signal"
   desc "Private messaging from your desktop"
   homepage "https://signal.org/"
