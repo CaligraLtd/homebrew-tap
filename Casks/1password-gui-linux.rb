@@ -34,13 +34,13 @@ cask "1password-gui-linux" do
   binary "1password-#{version}.#{arch_suffix}/1Password-BrowserSupport", target: "1Password-BrowserSupport"
   binary "1password-#{version}.#{arch_suffix}/1Password-Crash-Handler", target: "1Password-Crash-Handler"
   binary "1password-#{version}.#{arch_suffix}/1Password-LastPass-Exporter", target: "1Password-LastPass-Exporter"
-  artifact "1password-#{version}.#{arch_suffix}/resources/1password.desktop",
-           target: "#{Dir.home}/.local/share/applications/1password.desktop"
+  artifact "1password-#{version}.#{arch_suffix}/resources/com.onepassword.OnePassword.desktop",
+           target: "#{Dir.home}/.local/share/applications/com.onepassword.OnePassword.desktop"
   artifact "1password-#{version}.#{arch_suffix}/resources/icons/hicolor/256x256/apps/1password.png",
            target: "#{Dir.home}/.local/share/icons/hicolor/256x256/apps/1password.png"
 
   preflight do
-    desktop_file = "#{staged_path}/1password-#{version}.#{arch_suffix}/resources/1password.desktop"
+    desktop_file = "#{staged_path}/1password-#{version}.#{arch_suffix}/resources/com.onepassword.OnePassword.desktop"
     File.write(desktop_file,
                File.read(desktop_file)
                    .gsub("Exec=/opt/1Password/1password", "Exec=#{HOMEBREW_PREFIX}/bin/1password")
