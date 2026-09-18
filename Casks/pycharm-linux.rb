@@ -28,26 +28,27 @@ cask "pycharm-linux" do
   auto_updates false
   conflicts_with cask: "jetbrains-toolbox-linux"
 
-  binary "pycharm-#{version.csv.first}/bin/pycharm"
+  pycharm_dir = "pycharm-#{version.csv.first}"
+
+  binary "#{pycharm_dir}/bin/pycharm"
   artifact "jetbrains-pycharm.desktop",
            target: "#{Dir.home}/.local/share/applications/jetbrains-pycharm.desktop"
-  artifact "pycharm-#{version.csv.first}/bin/pycharm.svg",
+  artifact "#{pycharm_dir}/bin/pycharm.svg",
            target: "#{Dir.home}/.local/share/icons/hicolor/scalable/apps/pycharm.svg"
 
-  preflight do
+  preflight_steps do
     # Prevent PyCharm's built-in updater from conflicting with Homebrew
     # TODO: enable server-side window decorations once JBR supports it properly
     #   https://youtrack.jetbrains.com/issue/JBR-6187
-    File.write("#{staged_path}/pycharm-#{version.csv.first}/bin/pycharm64.vmoptions",
-               "-Dide.no.platform.update=true\n", mode: "a+")
-    FileUtils.mkdir_p("#{Dir.home}/.local/share/applications")
-    FileUtils.mkdir_p("#{Dir.home}/.local/share/icons/hicolor/scalable/apps")
-    File.write("#{staged_path}/jetbrains-pycharm.desktop", <<~EOS)
+    inreplace "#{pycharm_dir}/bin/pycharm64.vmoptions", /\n?\z/, "\n-Dide.no.platform.update=true\n", global: false
+    mkdir_p ".local/share/applications", base: :home
+    mkdir_p ".local/share/icons/hicolor/scalable/apps", base: :home
+    write_file "jetbrains-pycharm.desktop", <<~EOS
       [Desktop Entry]
       Version=1.0
       Name=PyCharm
       Comment=The Only Python IDE you need
-      Exec=#{HOMEBREW_PREFIX}/bin/pycharm %F
+      Exec={{HOMEBREW_PREFIX}}/bin/pycharm %F
       Icon=pycharm
       Type=Application
       Categories=Development;IDE;
@@ -58,8 +59,8 @@ cask "pycharm-linux" do
     EOS
   end
 
-  postflight do
-    system "/usr/bin/xdg-icon-resource", "forceupdate"
+  postflight_steps do
+    run "/usr/bin/xdg-icon-resource", args: ["forceupdate"], must_succeed: false
   end
 
   zap trash: [
