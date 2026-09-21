@@ -70,7 +70,9 @@ cask "1password-gui-linux" do
         []
       end
 
-    chrome_lines = chrome_dirs.map { |d| "chown -R root:root #{d.shellescape}" }.join("\n")
+    chrome_lines = chrome_dirs.flat_map do |d|
+      ["chown -R root:root #{d.shellescape}", "chmod -R a+rX #{d.shellescape}"]
+    end.join("\n")
 
     privileged_script = "#{staged_path}/caligra-1password-setup.sh"
     File.write(privileged_script, <<~SH)
@@ -80,6 +82,7 @@ cask "1password-gui-linux" do
       getent group #{group_name.shellescape} >/dev/null || groupadd --system #{group_name.shellescape}
       install -Dm0644 #{policy_rendered.shellescape} #{policy_target.shellescape}
       chown -R root:root #{app_dir.shellescape}
+      chmod -R a+rX #{app_dir.shellescape}
       chgrp #{group_name.shellescape} #{browser_support_path.shellescape}
       chmod 2755 #{browser_support_path.shellescape}
       #{chrome_lines}
