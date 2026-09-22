@@ -1,8 +1,8 @@
 cask "zoom-linux" do
   os linux: "linux"
 
-  version "7.2.0.5705"
-  sha256 "242a6e0e7c544efa0fc424ad256aa9a5e6a78e59e7f2338f25806cbc3378a273"
+  version "7.2.1.5760"
+  sha256 "79b6fc1ffd9fd2e2d136e898aed9c8ed6ab672a83841de4220ca4c14005d76fd"
 
   url "https://cdn.zoom.us/prod/#{version}/zoom_x86_64.rpm",
       verified: "cdn.zoom.us/prod/"
