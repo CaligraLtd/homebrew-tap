@@ -33,62 +33,131 @@ cask "visual-studio-code-linux" do
   artifact "#{vscode_dir}/resources/app/resources/linux/code.png",
            target: "#{Dir.home}/.local/share/icons/vscode.png"
 
-  preflight_steps do
-    mkdir_p ".local/share/applications", base: :home
-    write_file "#{vscode_dir}/code.desktop", <<~EOS
-      [Desktop Entry]
-      Name=Visual Studio Code
-      Comment=Code Editing. Redefined.
-      GenericName=Text Editor
-      Exec={{HOMEBREW_PREFIX}}/bin/code %F
-      Icon=#{Dir.home}/.local/share/icons/vscode.png
-      Type=Application
-      StartupNotify=false
-      StartupWMClass=Code
-      Categories=TextEditor;Development;IDE;
-      MimeType=application/x-code-workspace;
-      Actions=new-empty-window;
-      Keywords=vscode;
+  # Workbench 0.10.32 and older share a root-owned `/home/linuxbrew` prefix.
+  # Homebrew chmods `$HOMEBREW_PREFIX/bin` after every `*_steps` block, which
+  # fails there, so those machines keep the Ruby blocks.
+  shared_prefix = !File.owned?("#{HOMEBREW_PREFIX}/bin")
 
-      [Desktop Action new-empty-window]
-      Name=New Empty Window
-      Name[cs]=Nové prázdné okno
-      Name[de]=Neues leeres Fenster
-      Name[es]=Nueva ventana vacía
-      Name[fr]=Nouvelle fenêtre vide
-      Name[it]=Nuova finestra vuota
-      Name[ja]=新しい空のウィンドウ
-      Name[ko]=새 빈 창
-      Name[ru]=Новое пустое окно
-      Name[zh_CN]=新建空窗口
-      Name[zh_TW]=開新空視窗
-      Exec={{HOMEBREW_PREFIX}}/bin/code --new-window %F
-      Icon=#{Dir.home}/.local/share/icons/vscode.png
-    EOS
-    write_file "#{vscode_dir}/code-url-handler.desktop", <<~EOS
-      [Desktop Entry]
-      Name=Visual Studio Code - URL Handler
-      Comment=Code Editing. Redefined.
-      GenericName=Text Editor
-      Exec={{HOMEBREW_PREFIX}}/bin/code --open-url %U
-      Icon=#{Dir.home}/.local/share/icons/vscode.png
-      Type=Application
-      NoDisplay=true
-      StartupNotify=true
-      Categories=Utility;TextEditor;Development;IDE;
-      MimeType=x-scheme-handler/vscode;
-      Keywords=vscode;
-    EOS
+  if shared_prefix
+    preflight do
+      FileUtils.mkdir_p "#{Dir.home}/.local/share/applications"
+      File.write("#{staged_path}/VSCode-linux-#{arch}/code.desktop", <<~EOS)
+        [Desktop Entry]
+        Name=Visual Studio Code
+        Comment=Code Editing. Redefined.
+        GenericName=Text Editor
+        Exec=#{HOMEBREW_PREFIX}/bin/code %F
+        Icon=#{Dir.home}/.local/share/icons/vscode.png
+        Type=Application
+        StartupNotify=false
+        StartupWMClass=Code
+        Categories=TextEditor;Development;IDE;
+        MimeType=application/x-code-workspace;
+        Actions=new-empty-window;
+        Keywords=vscode;
+
+        [Desktop Action new-empty-window]
+        Name=New Empty Window
+        Name[cs]=Nové prázdné okno
+        Name[de]=Neues leeres Fenster
+        Name[es]=Nueva ventana vacía
+        Name[fr]=Nouvelle fenêtre vide
+        Name[it]=Nuova finestra vuota
+        Name[ja]=新しい空のウィンドウ
+        Name[ko]=새 빈 창
+        Name[ru]=Новое пустое окно
+        Name[zh_CN]=新建空窗口
+        Name[zh_TW]=開新空視窗
+        Exec=#{HOMEBREW_PREFIX}/bin/code --new-window %F
+        Icon=#{Dir.home}/.local/share/icons/vscode.png
+      EOS
+      File.write("#{staged_path}/VSCode-linux-#{arch}/code-url-handler.desktop", <<~EOS)
+        [Desktop Entry]
+        Name=Visual Studio Code - URL Handler
+        Comment=Code Editing. Redefined.
+        GenericName=Text Editor
+        Exec=#{HOMEBREW_PREFIX}/bin/code --open-url %U
+        Icon=#{Dir.home}/.local/share/icons/vscode.png
+        Type=Application
+        NoDisplay=true
+        StartupNotify=true
+        Categories=Utility;TextEditor;Development;IDE;
+        MimeType=x-scheme-handler/vscode;
+        Keywords=vscode;
+      EOS
+    end
+  else
+    preflight_steps do
+      mkdir_p ".local/share/applications", base: :home
+      write_file "#{vscode_dir}/code.desktop", <<~EOS
+        [Desktop Entry]
+        Name=Visual Studio Code
+        Comment=Code Editing. Redefined.
+        GenericName=Text Editor
+        Exec={{HOMEBREW_PREFIX}}/bin/code %F
+        Icon=#{Dir.home}/.local/share/icons/vscode.png
+        Type=Application
+        StartupNotify=false
+        StartupWMClass=Code
+        Categories=TextEditor;Development;IDE;
+        MimeType=application/x-code-workspace;
+        Actions=new-empty-window;
+        Keywords=vscode;
+
+        [Desktop Action new-empty-window]
+        Name=New Empty Window
+        Name[cs]=Nové prázdné okno
+        Name[de]=Neues leeres Fenster
+        Name[es]=Nueva ventana vacía
+        Name[fr]=Nouvelle fenêtre vide
+        Name[it]=Nuova finestra vuota
+        Name[ja]=新しい空のウィンドウ
+        Name[ko]=새 빈 창
+        Name[ru]=Новое пустое окно
+        Name[zh_CN]=新建空窗口
+        Name[zh_TW]=開新空視窗
+        Exec={{HOMEBREW_PREFIX}}/bin/code --new-window %F
+        Icon=#{Dir.home}/.local/share/icons/vscode.png
+      EOS
+      write_file "#{vscode_dir}/code-url-handler.desktop", <<~EOS
+        [Desktop Entry]
+        Name=Visual Studio Code - URL Handler
+        Comment=Code Editing. Redefined.
+        GenericName=Text Editor
+        Exec={{HOMEBREW_PREFIX}}/bin/code --open-url %U
+        Icon=#{Dir.home}/.local/share/icons/vscode.png
+        Type=Application
+        NoDisplay=true
+        StartupNotify=true
+        Categories=Utility;TextEditor;Development;IDE;
+        MimeType=x-scheme-handler/vscode;
+        Keywords=vscode;
+      EOS
+    end
   end
 
-  postflight_steps do
-    # Seed default settings only on first install so user edits survive upgrades.
-    unless_path_exists ".config/Code/User/settings.json", base: :home do
-      write_file ".config/Code/User/settings.json", <<~JSON, base: :home
-        {
-          "window.titleBarStyle": "native"
-        }
-      JSON
+  if shared_prefix
+    postflight do
+      # Seed default settings only on first install so user edits survive upgrades.
+      settings_path = "#{Dir.home}/.config/Code/User/settings.json"
+      unless File.exist?(settings_path)
+        FileUtils.mkdir_p(File.dirname(settings_path))
+        require "json"
+        File.write(settings_path, JSON.pretty_generate({
+          "window.titleBarStyle" => "native",
+        }))
+      end
+    end
+  else
+    postflight_steps do
+      # Seed default settings only on first install so user edits survive upgrades.
+      unless_path_exists ".config/Code/User/settings.json", base: :home do
+        write_file ".config/Code/User/settings.json", <<~JSON, base: :home
+          {
+            "window.titleBarStyle": "native"
+          }
+        JSON
+      end
     end
   end
 

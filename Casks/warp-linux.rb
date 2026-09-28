@@ -27,12 +27,32 @@ cask "warp-linux" do
   artifact "usr/share/icons/hicolor/512x512/apps/dev.warp.Warp.png",
            target: icon
 
-  preflight_steps do
-    run "/bin/sh", args: ["-c", "rpm2cpio #{rpm} | cpio -idm --quiet"], chdir: "."
-    run "sed", args: ["-i",
-                      "-e", "0,/^Exec=/s|^Exec=.*|Exec={{HOMEBREW_PREFIX}}/bin/warp-terminal %U|",
-                      "-e", "0,/^Icon=/s|^Icon=.*|Icon=#{icon}|",
-                      "usr/share/applications/dev.warp.Warp.desktop"], chdir: "."
+  # Workbench 0.10.32 and older share a root-owned `/home/linuxbrew` prefix.
+  # Homebrew chmods `$HOMEBREW_PREFIX/bin` after every `*_steps` block, which
+  # fails there, so those machines keep the Ruby blocks.
+  shared_prefix = !File.owned?("#{HOMEBREW_PREFIX}/bin")
+
+  if shared_prefix
+    preflight do
+      rpm_path = "#{staged_path}/warp-terminal-v#{version}-1.#{arch}.rpm"
+      system_command "/bin/sh",
+                     args:  ["-c", "rpm2cpio #{rpm_path.shellescape} | cpio -idm --quiet"],
+                     chdir: staged_path
+
+      desktop_file = "#{staged_path}/usr/share/applications/dev.warp.Warp.desktop"
+      content = File.read(desktop_file)
+      content.sub!(/^Exec=.*$/, "Exec=#{HOMEBREW_PREFIX}/bin/warp-terminal %U")
+      content.sub!(/^Icon=.*$/, "Icon=#{Dir.home}/.local/share/icons/hicolor/512x512/apps/dev.warp.Warp.png")
+      File.write(desktop_file, content)
+    end
+  else
+    preflight_steps do
+      run "/bin/sh", args: ["-c", "rpm2cpio #{rpm} | cpio -idm --quiet"], chdir: "."
+      run "sed", args: ["-i",
+                        "-e", "0,/^Exec=/s|^Exec=.*|Exec={{HOMEBREW_PREFIX}}/bin/warp-terminal %U|",
+                        "-e", "0,/^Icon=/s|^Icon=.*|Icon=#{icon}|",
+                        "usr/share/applications/dev.warp.Warp.desktop"], chdir: "."
+    end
   end
 
   zap trash: [
