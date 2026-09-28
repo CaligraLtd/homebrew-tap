@@ -1,9 +1,10 @@
 require "etc"
 
 cask "google-chrome-linux" do
+  os linux: "linux"
+
   version "154.0.8037.57"
   sha256 "a7a5a14c3c05a04acfddb4d6c3f9f7961e09419351377f87734743645ee85952"
-  os linux: "linux"
 
   url "https://dl.google.com/linux/chrome/rpm/stable/x86_64/google-chrome-stable-#{version}-1.x86_64.rpm"
   name "Google Chrome"
@@ -14,111 +15,201 @@ cask "google-chrome-linux" do
   depends_on cask: "caligraltd/tap/microsoft-core-fonts-linux"
   depends_on cask: "font-noto-color-emoji"
 
+  icon = "#{Dir.home}/.local/share/icons/hicolor/256x256/apps/google-chrome.png"
+
   binary "#{staged_path}/opt/google/chrome/google-chrome"
   binary "#{staged_path}/opt/google/chrome/google-chrome", target: "google-chrome-stable"
   artifact "google-chrome.desktop",
            target: "#{Dir.home}/.local/share/applications/google-chrome.desktop"
   artifact "google-chrome.png",
-           target: "#{Dir.home}/.local/share/icons/hicolor/256x256/apps/google-chrome.png"
+           target: icon
 
-  preflight do
-    system_command "bash",
-                   args: ["-o", "pipefail", "-c",
-                          "rpm2cpio google-chrome-stable-#{version}-1.x86_64.rpm | cpio -idm"],
-                   chdir: staged_path,
-                   must_succeed: true
+  # Workbench 0.10.32 and older share a root-owned `/home/linuxbrew` prefix.
+  # Homebrew chmods `$HOMEBREW_PREFIX/bin` after every `*_steps` block, which
+  # fails there, so those machines keep the Ruby blocks.
+  shared_prefix = !File.owned?("#{HOMEBREW_PREFIX}/bin")
 
-    # Copy icon
-    icon_source = "#{staged_path}/opt/google/chrome/product_logo_256.png"
-    raise "Icon file not found in RPM package" unless File.exist?(icon_source)
+  if shared_prefix
+    preflight do
+      system_command "bash",
+                     args:         ["-o", "pipefail", "-c",
+                                    "rpm2cpio google-chrome-stable-#{version}-1.x86_64.rpm | cpio -idm"],
+                     chdir:        staged_path,
+                     must_succeed: true
 
-    FileUtils.cp icon_source, "#{staged_path}/google-chrome.png"
+      # Copy icon
+      icon_source = "#{staged_path}/opt/google/chrome/product_logo_256.png"
+      raise "Icon file not found in RPM package" unless File.exist?(icon_source)
 
-    # Use the desktop file from the RPM and update Exec paths to point to Homebrew
-    desktop_file = "#{staged_path}/usr/share/applications/google-chrome.desktop"
-    raise "Desktop file not found in RPM package" unless File.exist?(desktop_file)
+      FileUtils.cp icon_source, "#{staged_path}/google-chrome.png"
 
-    text = File.read(desktop_file)
-    # Replace /usr/bin/google-chrome-stable with Homebrew path
-    new_contents = text.gsub(%r{/usr/bin/google-chrome-stable}, "#{HOMEBREW_PREFIX}/bin/google-chrome")
-    # Update icon path to use the one we copied
-    new_contents = new_contents.sub(/^Icon=.*$/,
-                                    "Icon=#{Dir.home}/.local/share/icons/hicolor/256x256/apps/google-chrome.png")
-    File.write("#{staged_path}/google-chrome.desktop", new_contents)
+      # Use the desktop file from the RPM and update Exec paths to point to Homebrew
+      desktop_file = "#{staged_path}/usr/share/applications/google-chrome.desktop"
+      raise "Desktop file not found in RPM package" unless File.exist?(desktop_file)
 
-    # Set up initial preferences for Caligra Workbench
-    if File.exist?("/etc/os-release")
-      os_release = File.read("/etc/os-release")
-      if os_release.include?("Caligra Workbench")
-        preferences = {
-          "browser" => {
-            "custom_chrome_frame" => false,
-            "theme" => {
-              "is_grayscale" => true,
+      text = File.read(desktop_file)
+      # Replace /usr/bin/google-chrome-stable with Homebrew path
+      new_contents = text.gsub(%r{/usr/bin/google-chrome-stable}, "#{HOMEBREW_PREFIX}/bin/google-chrome")
+      # Update icon path to use the one we copied
+      new_contents = new_contents.sub(/^Icon=.*$/,
+                                      "Icon=#{Dir.home}/.local/share/icons/hicolor/256x256/apps/google-chrome.png")
+      File.write("#{staged_path}/google-chrome.desktop", new_contents)
+
+      # Set up initial preferences for Caligra Workbench
+      if File.exist?("/etc/os-release")
+        os_release = File.read("/etc/os-release")
+        if os_release.include?("Caligra Workbench")
+          preferences = {
+            "browser"        => {
+              "custom_chrome_frame" => false,
+              "theme"               => {
+                "is_grayscale" => true,
+              },
+              "window_placement"    => {
+                "bottom"    => 940,
+                "left"      => 0,
+                "maximized" => false,
+                "right"     => 1219,
+                "top"       => 100,
+              },
             },
-            "window_placement" => {
-              "bottom" => 940,
-              "left" => 0,
-              "maximized" => false,
-              "right" => 1219,
-              "top" => 100,
+            "first_run_tabs" => [
+              "https://caligra.com",
+              "https://lobste.rs/",
+            ],
+          }
+
+          require "json"
+          initial_prefs_path = "#{staged_path}/opt/google/chrome/initial_preferences"
+          File.write(initial_prefs_path, JSON.pretty_generate(preferences))
+        end
+      end
+
+      # Inject a hook into Chrome's own launcher to enforce window decorations
+      # on all profiles. initial_preferences only covers the Default profile;
+      # this catches additional profiles on every launch.
+      launcher = "#{staged_path}/opt/google/chrome/google-chrome"
+      launcher_script = File.read(launcher)
+      patch_block = <<~BASH
+        for prefs in "$HOME/.config/google-chrome"/*/Preferences; do
+          [ -f "$prefs" ] || continue
+          tmp="${prefs}.tmp"
+          jq '.browser.custom_chrome_frame = false | .browser.theme.is_grayscale = true' "$prefs" > "$tmp" 2>/dev/null && mv "$tmp" "$prefs"
+        done
+      BASH
+      launcher_script.sub!('exec -a "$0"', "#{patch_block}exec -a \"$0\"")
+      File.write(launcher, launcher_script)
+    end
+  else
+    preflight_steps do
+      run "/bin/bash",
+          args:  ["-o", "pipefail", "-c", "rpm2cpio google-chrome-stable-{{version}}-1.x86_64.rpm | cpio -idm"],
+          chdir: "."
+
+      copy "opt/google/chrome/product_logo_256.png", "google-chrome.png"
+
+      copy "usr/share/applications/google-chrome.desktop", "google-chrome.desktop"
+      run "sed", args: ["-i",
+                        "-e", "s|/usr/bin/google-chrome-stable|{{HOMEBREW_PREFIX}}/bin/google-chrome|g",
+                        "-e", "0,/^Icon=/s|^Icon=.*|Icon=#{icon}|",
+                        "google-chrome.desktop"], chdir: "."
+
+      # Initial preferences for Caligra Workbench
+      write_file "initial_preferences", <<~JSON
+        {
+          "browser": {
+            "custom_chrome_frame": false,
+            "theme": {
+              "is_grayscale": true
             },
+            "window_placement": {
+              "bottom": 940,
+              "left": 0,
+              "maximized": false,
+              "right": 1219,
+              "top": 100
+            }
           },
-          "first_run_tabs" => [
+          "first_run_tabs": [
             "https://caligra.com",
-            "https://lobste.rs/",
-          ],
+            "https://lobste.rs/"
+          ]
         }
-
-        require "json"
-        initial_prefs_path = "#{staged_path}/opt/google/chrome/initial_preferences"
-        File.write(initial_prefs_path, JSON.pretty_generate(preferences))
-      end
+      JSON
+      run "/bin/sh", args: ["-c", "if grep -q 'Caligra Workbench' /etc/os-release 2>/dev/null; " \
+                                  "then mv initial_preferences opt/google/chrome/initial_preferences; " \
+                                  "else rm -f initial_preferences; fi"], chdir: "."
     end
-
-    # Inject a hook into Chrome's own launcher to enforce window decorations
-    # on all profiles. initial_preferences only covers the Default profile;
-    # this catches additional profiles on every launch.
-    launcher = "#{staged_path}/opt/google/chrome/google-chrome"
-    launcher_script = File.read(launcher)
-    patch_block = <<~'BASH'
-      for prefs in "$HOME/.config/google-chrome"/*/Preferences; do
-        [ -f "$prefs" ] || continue
-        tmp="${prefs}.tmp"
-        jq '.browser.custom_chrome_frame = false | .browser.theme.is_grayscale = true' "$prefs" > "$tmp" 2>/dev/null && mv "$tmp" "$prefs"
-      done
-    BASH
-    launcher_script.sub!('exec -a "$0"', "#{patch_block}exec -a \"$0\"")
-    File.write(launcher, launcher_script)
   end
 
-  postflight do
-    # Make Chrome installation directory root-owned for 1Password browser integration.
-    # Only runs when 1Password is installed — no reason to require sudo otherwise.
-    if Dir.exist?("#{HOMEBREW_PREFIX}/Caskroom/1password-gui-linux")
+  if shared_prefix
+    postflight do
+      # Make Chrome installation directory root-owned for 1Password browser integration.
+      # Only runs when 1Password is installed — no reason to require sudo otherwise.
+      if Dir.exist?("#{HOMEBREW_PREFIX}/Caskroom/1password-gui-linux")
+        chrome_dir = "#{HOMEBREW_PREFIX}/Caskroom/google-chrome-linux/#{version}/opt/google/chrome"
+        if system("sudo", "chown", "-R", "root:root", chrome_dir)
+          puts "Set Chrome directory to root ownership for 1Password integration"
+        else
+          puts ""
+          puts "WARNING: Could not set Chrome directory to root ownership."
+          puts "1Password browser integration requires Chrome to be in a tamper-proof location."
+          puts ""
+          puts "To set up manually, run:"
+          puts "  sudo chown -R root:root #{chrome_dir}"
+        end
+      end
+    end
+  else
+    postflight_steps do
+      # Inject a hook into Chrome's own launcher to enforce window decorations
+      # on all profiles. initial_preferences only covers the Default profile;
+      # this catches additional profiles on every launch.
+      inreplace "opt/google/chrome/google-chrome", 'exec -a "$0"', <<~BASH.chomp, global: false
+        for prefs in "$HOME/.config/google-chrome"/*/Preferences; do
+          [ -f "$prefs" ] || continue
+          tmp="${prefs}.tmp"
+          jq '.browser.custom_chrome_frame = false | .browser.theme.is_grayscale = true' "$prefs" > "$tmp" 2>/dev/null && mv "$tmp" "$prefs"
+        done
+        exec -a "$0"
+      BASH
+
+      # Make Chrome installation directory root-owned for 1Password browser integration.
+      # Only runs when 1Password is installed; no reason to require sudo otherwise.
+      if_path_exists "{{HOMEBREW_PREFIX}}/Caskroom/1password-gui-linux" do
+        run "chown", args: ["-R", "root:root", "{{staged_path}}/opt/google/chrome"], sudo: true, must_succeed: false
+        run "chmod", args: ["-R", "a+rX", "{{staged_path}}/opt/google/chrome"], sudo: true, must_succeed: false
+        touch ".caligra-root-owned"
+      end
+    end
+  end
+
+  if shared_prefix
+    uninstall_preflight do
+      # Restore ownership if directory is root-owned (from 1Password integration setup)
       chrome_dir = "#{HOMEBREW_PREFIX}/Caskroom/google-chrome-linux/#{version}/opt/google/chrome"
-      if system("sudo", "chown", "-R", "root:root", chrome_dir)
-        puts "Set Chrome directory to root ownership for 1Password integration"
-      else
-        puts ""
-        puts "WARNING: Could not set Chrome directory to root ownership."
-        puts "1Password browser integration requires Chrome to be in a tamper-proof location."
-        puts ""
-        puts "To set up manually, run:"
-        puts "  sudo chown -R root:root #{chrome_dir}"
+      if File.exist?(chrome_dir) && File.stat(chrome_dir).uid.zero?
+        current_user = Etc.getpwuid(Process.uid).name
+        current_group = Etc.getgrgid(Process.gid).name
+        unless system "sudo", "chown", "-R", "#{current_user}:#{current_group}", chrome_dir
+          raise "Could not restore ownership on #{chrome_dir}; leaving the installed version untouched. " \
+                "Run `sudo chown -R #{current_user}:#{current_group} #{chrome_dir}` and retry."
+        end
       end
     end
-  end
-
-  uninstall_preflight do
-    # Restore ownership if directory is root-owned (from 1Password integration setup)
-    chrome_dir = "#{HOMEBREW_PREFIX}/Caskroom/google-chrome-linux/#{version}/opt/google/chrome"
-    if File.exist?(chrome_dir) && File.stat(chrome_dir).uid == 0
-      current_user = Etc.getpwuid(Process.uid).name
-      current_group = Etc.getgrgid(Process.gid).name
-      unless system "sudo", "chown", "-R", "#{current_user}:#{current_group}", chrome_dir
-        raise "Could not restore ownership on #{chrome_dir}; leaving the installed version untouched. " \
-              "Run `sudo chown -R #{current_user}:#{current_group} #{chrome_dir}` and retry."
+  else
+    uninstall_preflight_steps do
+      # Written by the postflight above and by 1password-gui-linux's setup. The
+      # 1Password Caskroom is no guide here: a 1Password installed before
+      # `*_steps` uninstalls without handing Chrome back. The marker is written
+      # even if the chown failed, so a failure here is not fatal; if Chrome is
+      # still root-owned, removing it fails anyway.
+      if_path_exists ".caligra-root-owned" do
+        run "/bin/sh",
+            args:         ["-c", "chown -R \"$SUDO_UID:$SUDO_GID\" \"$1\"", "sh",
+                           "{{staged_path}}/opt/google/chrome"],
+            sudo:         true,
+            must_succeed: false
       end
     end
   end

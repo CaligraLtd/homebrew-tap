@@ -66,43 +66,28 @@ echo "Testing casks: ${cask_list[*]}"
 
 echo "=== Installing system dependencies ==="
 dnf install -y \
-  git curl sudo gcc gcc-c++ make procps-ng file zstd xz binutils xdg-utils cpio systemd-devel
+  git curl sudo gcc gcc-c++ make procps-ng file zstd xz binutils xdg-utils cpio systemd-devel 7zip
 
 echo ""
 echo "=== Setting up Homebrew ==="
-getent group linuxbrew >/dev/null || groupadd -r linuxbrew
-id -u linuxbrew &>/dev/null || useradd -M -s /bin/bash -d /home/linuxbrew -g linuxbrew linuxbrew
-mkdir -p /home/linuxbrew
-chown linuxbrew:linuxbrew /home/linuxbrew
-
-# Install Homebrew via git clone (matches build-homebrew-tarball.sh)
-su -l linuxbrew -c "
-  git clone --depth 1 https://github.com/Homebrew/brew /home/linuxbrew/.linuxbrew
-  /home/linuxbrew/.linuxbrew/bin/brew update --force --quiet
-  cd /home/linuxbrew/.linuxbrew
-  mkdir -p Caskroom Cellar include lib opt sbin share/applications share/pixmaps
-"
-
-# Production ownership model (matches package-brew Containerfile)
-chown -R root:linuxbrew /home/linuxbrew
-chmod -R g+wX /home/linuxbrew
-chmod g+s /home/linuxbrew/.linuxbrew
-
-# Create test user in linuxbrew group (matches package-brew Containerfile)
+# Per-user prefix in ~/.b, as Workbench 0.10.33 and later ship it
 id -u brewci &>/dev/null || useradd -m -s /bin/bash brewci
-groups brewci | grep -q linuxbrew || usermod -aG linuxbrew brewci
 install -m 0440 /dev/null /etc/sudoers.d/brewci
 echo "brewci ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/brewci
+BREW=/home/brewci/.b/bin/brew
+
+# Install Homebrew via git clone (matches build-homebrew-tarball.sh)
+su -l brewci -c "
+  git clone --depth 1 https://github.com/Homebrew/brew ~/.b
+  $BREW update --force --quiet
+"
 
 # Link the tap checkout into Homebrew
-BREW_REPO=$(/home/linuxbrew/.linuxbrew/bin/brew --repository)
-TAP_DIR="$BREW_REPO/Library/Taps/caligraltd/homebrew-tap"
-mkdir -p "$(dirname "$TAP_DIR")"
-ln -sf "$REPO_ROOT" "$TAP_DIR"
-chown -h root:linuxbrew "$TAP_DIR"
+TAP_DIR="$(su -l brewci -c "$BREW --repository")/Library/Taps/caligraltd/homebrew-tap"
+su -l brewci -c "mkdir -p '$(dirname "$TAP_DIR")' && ln -sf '$REPO_ROOT' '$TAP_DIR'"
 
 su -l brewci -c "
-  eval \"\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\"
+  eval \"\$($BREW shellenv)\"
   brew trust caligraltd/tap
 "
 
@@ -112,7 +97,7 @@ for cask in "${cask_list[@]}"; do
   echo ""
   echo "=== Installing $cask ==="
   if su -l brewci -c "
-    eval \"\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\"
+    eval \"\$($BREW shellenv)\"
     export HOMEBREW_NO_AUTO_UPDATE=1
     brew install --cask caligraltd/tap/$cask
   "; then

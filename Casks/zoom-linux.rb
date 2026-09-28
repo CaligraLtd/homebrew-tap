@@ -4,8 +4,7 @@ cask "zoom-linux" do
   version "7.2.1.5760"
   sha256 "79b6fc1ffd9fd2e2d136e898aed9c8ed6ab672a83841de4220ca4c14005d76fd"
 
-  url "https://cdn.zoom.us/prod/#{version}/zoom_x86_64.rpm",
-      verified: "cdn.zoom.us/prod/"
+  url "https://cdn.zoom.us/prod/#{version}/zoom_x86_64.rpm"
   name "Zoom Workplace"
   desc "Video communication and virtual meeting platform"
   homepage "https://zoom.us/"
@@ -21,64 +20,122 @@ cask "zoom-linux" do
   # Workbench doesn't ship xcb-util-keysyms; see the preflight below.
   depends_on formula: "xcb-util-keysyms"
 
+  icon = "#{Dir.home}/.local/share/icons/hicolor/256x256/apps/Zoom.png"
+
   binary "#{staged_path}/opt/zoom/ZoomLauncher", target: "zoom"
   artifact "Zoom.desktop",
            target: "#{Dir.home}/.local/share/applications/Zoom.desktop"
   artifact "usr/share/pixmaps/Zoom.png",
-           target: "#{Dir.home}/.local/share/icons/hicolor/256x256/apps/Zoom.png"
+           target: icon
 
-  preflight do
-    system_command "/bin/sh",
-                   args:         ["-c", "rpm2cpio zoom_x86_64.rpm | cpio -idm --quiet"],
-                   chdir:        staged_path,
-                   must_succeed: true
+  # Workbench 0.10.32 and older share a root-owned `/home/linuxbrew` prefix.
+  # Homebrew chmods `$HOMEBREW_PREFIX/bin` after every `*_steps` block, which
+  # fails there, so those machines keep the Ruby blocks.
+  shared_prefix = !File.owned?("#{HOMEBREW_PREFIX}/bin")
 
-    # `zoom` needs `libxcb-keysyms.so.1`, which it doesn't bundle. Setting
-    # LD_LIBRARY_PATH doesn't help: ZoomLauncher overwrites it before exec'ing
-    # `zoom`, with its own install dir plus `Qt/lib`.
-    keysyms = [
-      "#{HOMEBREW_PREFIX}/opt/xcb-util-keysyms/lib/libxcb-keysyms.so.1",
-      "#{HOMEBREW_PREFIX}/lib/libxcb-keysyms.so.1",
-    ].find { |path| File.exist?(path) }
-    raise "libxcb-keysyms.so.1 not found under #{HOMEBREW_PREFIX}" if keysyms.nil?
+  if shared_prefix
+    preflight do
+      system_command "/bin/sh",
+                     args:         ["-c", "rpm2cpio zoom_x86_64.rpm | cpio -idm --quiet"],
+                     chdir:        staged_path,
+                     must_succeed: true
 
-    FileUtils.ln_sf keysyms, "#{staged_path}/opt/zoom/Qt/lib/libxcb-keysyms.so.1"
+      # `zoom` needs `libxcb-keysyms.so.1`, which it doesn't bundle. Setting
+      # LD_LIBRARY_PATH doesn't help: ZoomLauncher overwrites it before exec'ing
+      # `zoom`, with its own install dir plus `Qt/lib`.
+      keysyms = [
+        "#{HOMEBREW_PREFIX}/opt/xcb-util-keysyms/lib/libxcb-keysyms.so.1",
+        "#{HOMEBREW_PREFIX}/lib/libxcb-keysyms.so.1",
+      ].find { |path| File.exist?(path) }
+      raise "libxcb-keysyms.so.1 not found under #{HOMEBREW_PREFIX}" if keysyms.nil?
 
-    FileUtils.mkdir_p "#{Dir.home}/.local/share/applications"
-    FileUtils.mkdir_p "#{Dir.home}/.local/share/icons/hicolor/256x256/apps"
+      FileUtils.ln_sf keysyms, "#{staged_path}/opt/zoom/Qt/lib/libxcb-keysyms.so.1"
 
-    desktop_file = "#{staged_path}/usr/share/applications/Zoom.desktop"
-    raise "Zoom desktop file not found in package" unless File.exist?(desktop_file)
+      FileUtils.mkdir_p "#{Dir.home}/.local/share/applications"
+      FileUtils.mkdir_p "#{Dir.home}/.local/share/icons/hicolor/256x256/apps"
 
-    text = File.read(desktop_file)
-    text.sub!(/^Exec=.*$/, "Exec=#{HOMEBREW_PREFIX}/bin/zoom %U")
-    text.sub!(/^Icon=.*$/, "Icon=#{Dir.home}/.local/share/icons/hicolor/256x256/apps/Zoom.png")
-    File.write("#{staged_path}/Zoom.desktop", text)
+      desktop_file = "#{staged_path}/usr/share/applications/Zoom.desktop"
+      raise "Zoom desktop file not found in package" unless File.exist?(desktop_file)
+
+      text = File.read(desktop_file)
+      text.sub!(/^Exec=.*$/, "Exec=#{HOMEBREW_PREFIX}/bin/zoom %U")
+      text.sub!(/^Icon=.*$/, "Icon=#{Dir.home}/.local/share/icons/hicolor/256x256/apps/Zoom.png")
+      File.write("#{staged_path}/Zoom.desktop", text)
+    end
+  else
+    preflight_steps do
+      run "/bin/sh", args: ["-c", "rpm2cpio zoom_x86_64.rpm | cpio -idm --quiet"], chdir: "."
+
+      # `zoom` needs `libxcb-keysyms.so.1`, which it doesn't bundle. Setting
+      # LD_LIBRARY_PATH doesn't help: ZoomLauncher overwrites it before exec'ing
+      # `zoom`, with its own install dir plus `Qt/lib`.
+      symlink "{{HOMEBREW_PREFIX}}/opt/xcb-util-keysyms/lib/libxcb-keysyms.so.1",
+              "opt/zoom/Qt/lib/libxcb-keysyms.so.1", overwrite: true
+
+      mkdir_p ".local/share/applications", base: :home
+      mkdir_p ".local/share/icons/hicolor/256x256/apps", base: :home
+
+      copy "usr/share/applications/Zoom.desktop", "Zoom.desktop"
+      run "sed", args: ["-i",
+                        "-e", "0,/^Exec=/s|^Exec=.*|Exec={{HOMEBREW_PREFIX}}/bin/zoom %U|",
+                        "-e", "0,/^Icon=/s|^Icon=.*|Icon=#{icon}|",
+                        "Zoom.desktop"], chdir: "."
+    end
   end
 
-  postflight do
-    # Use Workbench's window decorations
-    conf = "#{Dir.home}/.config/zoomus.conf"
-    text = File.exist?(conf) ? File.read(conf) : "[General]\n"
+  if shared_prefix
+    postflight do
+      # Use Workbench's window decorations
+      conf = "#{Dir.home}/.config/zoomus.conf"
+      text = File.exist?(conf) ? File.read(conf) : "[General]\n"
 
-    text = if text.match?(/^showSystemTitlebar=/)
-      text.sub(/^showSystemTitlebar=.*$/, "showSystemTitlebar=true")
-    elsif text.match?(/^\[General\]$/)
-      text.sub(/^\[General\]$/, "[General]\nshowSystemTitlebar=true")
-    else
-      "#{text.chomp}\n\n[General]\nshowSystemTitlebar=true\n"
+      text = if text.match?(/^showSystemTitlebar=/)
+        text.sub(/^showSystemTitlebar=.*$/, "showSystemTitlebar=true")
+      elsif text.match?(/^\[General\]$/)
+        text.sub(/^\[General\]$/, "[General]\nshowSystemTitlebar=true")
+      else
+        "#{text.chomp}\n\n[General]\nshowSystemTitlebar=true\n"
+      end
+
+      FileUtils.mkdir_p File.dirname(conf)
+      File.write(conf, text)
+
+      # Meetings open through a zoommtg:// link in the browser.
+      apps_dir = "#{Dir.home}/.local/share/applications"
+      system_command "/bin/sh",
+                     args:         ["-c",
+                                    "command -v update-desktop-database >/dev/null && " \
+                                    "update-desktop-database #{apps_dir.shellescape}"],
+                     must_succeed: false
     end
+  else
+    postflight_steps do
+      # Use Workbench's window decorations
+      write_file "caligra-zoom-titlebar.sh", <<~SH
+        #!/bin/sh
+        set -e
+        conf="#{Dir.home}/.config/zoomus.conf"
+        mkdir -p "$(dirname "$conf")"
+        if [ ! -f "$conf" ]; then
+          printf '[General]\\nshowSystemTitlebar=true\\n' > "$conf"
+        elif grep -q '^showSystemTitlebar=' "$conf"; then
+          sed -i 's/^showSystemTitlebar=.*/showSystemTitlebar=true/' "$conf"
+        elif grep -q '^\\[General\\]$' "$conf"; then
+          sed -i 's/^\\[General\\]$/[General]\\nshowSystemTitlebar=true/' "$conf"
+        else
+          printf '\\n[General]\\nshowSystemTitlebar=true\\n' >> "$conf"
+        fi
+      SH
+      run "/bin/sh", args: ["{{staged_path}}/caligra-zoom-titlebar.sh"],
+                     writable_paths: [".config"], writable_base: :home
 
-    FileUtils.mkdir_p File.dirname(conf)
-    File.write(conf, text)
-
-    # Meetings open through a zoommtg:// link in the browser.
-    apps_dir = "#{Dir.home}/.local/share/applications"
-    system_command "/bin/sh",
-                   args:         ["-c",
-                                  "command -v update-desktop-database >/dev/null && " \
-                                  "update-desktop-database #{apps_dir.shellescape}"],
-                   must_succeed: false
+      # Meetings open through a zoommtg:// link in the browser.
+      run "/bin/sh",
+          args:           ["-c", "command -v update-desktop-database >/dev/null && " \
+                                 "update-desktop-database #{Dir.home}/.local/share/applications"],
+          writable_paths: [".local/share/applications"], writable_base: :home,
+          must_succeed:   false
+    end
   end
 
   zap trash: [

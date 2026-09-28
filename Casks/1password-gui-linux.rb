@@ -3,7 +3,7 @@ require "etc"
 require "shellwords"
 
 cask "1password-gui-linux" do
-  arch intel: "x86_64", arm: "aarch64"
+  arch arm: "aarch64", intel: "x86_64"
   os linux: "linux"
 
   version "8.12.36"
@@ -39,104 +39,170 @@ cask "1password-gui-linux" do
   artifact "1password-#{version}.#{arch_suffix}/resources/icons/hicolor/256x256/apps/1password.png",
            target: "#{Dir.home}/.local/share/icons/hicolor/256x256/apps/1password.png"
 
-  preflight do
-    desktop_file = "#{staged_path}/1password-#{version}.#{arch_suffix}/resources/com.onepassword.OnePassword.desktop"
-    File.write(desktop_file,
-               File.read(desktop_file)
-                   .gsub("Exec=/opt/1Password/1password", "Exec=#{HOMEBREW_PREFIX}/bin/1password")
-                   .sub(/^Icon=.*$/, "Icon=#{Dir.home}/.local/share/icons/hicolor/256x256/apps/1password.png"))
-  end
+  # Workbench 0.10.32 and older share a root-owned `/home/linuxbrew` prefix.
+  # Homebrew chmods `$HOMEBREW_PREFIX/bin` after every `*_steps` block, which
+  # fails there, so those machines keep the Ruby blocks.
+  shared_prefix = !File.owned?("#{HOMEBREW_PREFIX}/bin")
 
-  postflight do
-    app_dir = "#{HOMEBREW_PREFIX}/Caskroom/1password-gui-linux/#{version}/1password-#{version}.#{arch_suffix}"
-    browser_support_path = "#{app_dir}/1Password-BrowserSupport"
-    policy_template = "#{staged_path}/1password-#{version}.#{arch_suffix}/com.1password.1Password.policy.tpl"
-    policy_target = "/etc/polkit-1/actions/com.1password.1Password.policy"
-    group_name = "onepassword"
-
-    policy_rendered = "#{staged_path}/com.1password.1Password.policy"
-    File.write(policy_rendered,
-               File.read(policy_template)
-                   .gsub(%r{^\s*<annotate key="org\.freedesktop\.policykit\.owner">[^<]*</annotate>\s*\n}, ""))
-
-    chrome_cask_dir = "#{HOMEBREW_PREFIX}/Caskroom/google-chrome-linux"
-    chrome_dirs =
-      if Dir.exist?(chrome_cask_dir)
-        Dir.children(chrome_cask_dir)
-           .reject { |e| e.start_with?(".") }
-           .map { |v| "#{chrome_cask_dir}/#{v}/opt/google/chrome" }
-           .select { |d| Dir.exist?(d) }
-      else
-        []
-      end
-
-    chrome_lines = chrome_dirs.flat_map do |d|
-      ["chown -R root:root #{d.shellescape}", "chmod -R a+rX #{d.shellescape}"]
-    end.join("\n")
-
-    privileged_script = "#{staged_path}/caligra-1password-setup.sh"
-    File.write(privileged_script, <<~SH)
-      #!/usr/bin/env bash
-      set -euo pipefail
-
-      getent group #{group_name.shellescape} >/dev/null || groupadd --system #{group_name.shellescape}
-      install -Dm0644 #{policy_rendered.shellescape} #{policy_target.shellescape}
-      chown -R root:root #{app_dir.shellescape}
-      chmod -R a+rX #{app_dir.shellescape}
-      chgrp #{group_name.shellescape} #{browser_support_path.shellescape}
-      chmod 2755 #{browser_support_path.shellescape}
-      #{chrome_lines}
-    SH
-    FileUtils.chmod(0755, privileged_script)
-
-    ohai "Configuring 1Password polkit policy and browser integration (sudo required)"
-    if system("sudo", "--", "bash", privileged_script)
-      ohai "Browser integration configured. Restart your browsers to enable it."
-    else
-      opoo <<~MSG
-        Could not configure 1Password polkit policy or browser integration.
-        To finish setup manually:
-          sudo bash #{privileged_script.shellescape}
-      MSG
+  if shared_prefix
+    preflight do
+      desktop_file = "#{staged_path}/1password-#{version}.#{arch_suffix}/resources/com.onepassword.OnePassword.desktop"
+      File.write(desktop_file,
+                 File.read(desktop_file)
+                     .gsub("Exec=/opt/1Password/1password", "Exec=#{HOMEBREW_PREFIX}/bin/1password")
+                     .sub(/^Icon=.*$/, "Icon=#{Dir.home}/.local/share/icons/hicolor/256x256/apps/1password.png"))
+    end
+  else
+    preflight_steps do
+      inreplace "1password-{{version}}.#{arch_suffix}/resources/com.onepassword.OnePassword.desktop",
+                "Exec=/opt/1Password/1password", "Exec={{HOMEBREW_PREFIX}}/bin/1password"
+      inreplace "1password-{{version}}.#{arch_suffix}/resources/com.onepassword.OnePassword.desktop", /^Icon=.*$/,
+                "Icon=#{Dir.home}/.local/share/icons/hicolor/256x256/apps/1password.png", global: false
     end
   end
 
-  uninstall_preflight do
-    app_dir = "#{HOMEBREW_PREFIX}/Caskroom/1password-gui-linux/#{version}/1password-#{version}.#{arch_suffix}"
-    policy_target = "/etc/polkit-1/actions/com.1password.1Password.policy"
+  if shared_prefix
+    postflight do
+      app_dir = "#{HOMEBREW_PREFIX}/Caskroom/1password-gui-linux/#{version}/1password-#{version}.#{arch_suffix}"
+      browser_support_path = "#{app_dir}/1Password-BrowserSupport"
+      policy_template = "#{staged_path}/1password-#{version}.#{arch_suffix}/com.1password.1Password.policy.tpl"
+      policy_target = "/etc/polkit-1/actions/com.1password.1Password.policy"
+      group_name = "onepassword"
 
-    needs_chown = Dir.exist?(app_dir) && File.stat(app_dir).uid.zero?
-    needs_policy_removal = File.exist?(policy_target)
+      policy_rendered = "#{staged_path}/com.1password.1Password.policy"
+      File.write(policy_rendered,
+                 File.read(policy_template)
+                     .gsub(%r{^\s*<annotate key="org\.freedesktop\.policykit\.owner">[^<]*</annotate>\s*\n}, ""))
 
-    next if !needs_chown && !needs_policy_removal
+      chrome_cask_dir = "#{HOMEBREW_PREFIX}/Caskroom/google-chrome-linux"
+      chrome_dirs =
+        if Dir.exist?(chrome_cask_dir)
+          Dir.children(chrome_cask_dir)
+             .reject { |e| e.start_with?(".") }
+             .map { |v| "#{chrome_cask_dir}/#{v}/opt/google/chrome" }
+             .select { |d| Dir.exist?(d) }
+        else
+          []
+        end
 
-    current_user = Etc.getpwuid(Process.uid).name
-    current_group = Etc.getgrgid(Process.gid).name
-    owner = "#{current_user.shellescape}:#{current_group.shellescape}"
+      chrome_lines = chrome_dirs.flat_map do |d|
+        ["chown -R root:root #{d.shellescape}", "chmod -R a+rX #{d.shellescape}"]
+      end.join("\n")
 
-    chown_line = "chown -R #{owner} #{app_dir.shellescape}" if needs_chown
-    rm_line = "rm -f -- #{policy_target.shellescape}" if needs_policy_removal
+      privileged_script = "#{staged_path}/caligra-1password-setup.sh"
+      File.write(privileged_script, <<~SH)
+        #!/usr/bin/env bash
+        set -euo pipefail
 
-    privileged_script = "#{staged_path}/caligra-1password-teardown.sh"
-    File.write(privileged_script, <<~SH)
-      #!/usr/bin/env bash
-      set -euo pipefail
-      #{chown_line}
-      #{rm_line}
-    SH
-    FileUtils.chmod(0755, privileged_script)
+        getent group #{group_name.shellescape} >/dev/null || groupadd --system #{group_name.shellescape}
+        install -Dm0644 #{policy_rendered.shellescape} #{policy_target.shellescape}
+        chown -R root:root #{app_dir.shellescape}
+        chmod -R a+rX #{app_dir.shellescape}
+        chgrp #{group_name.shellescape} #{browser_support_path.shellescape}
+        chmod 2755 #{browser_support_path.shellescape}
+        #{chrome_lines}
+      SH
+      FileUtils.chmod(0755, privileged_script)
 
-    ohai "Cleaning up 1Password privileged state (sudo required)"
-    next if system("sudo", "--", "bash", privileged_script)
+      ohai "Configuring 1Password polkit policy and browser integration (sudo required)"
+      if system("sudo", "--", "bash", privileged_script)
+        ohai "Browser integration configured. Restart your browsers to enable it."
+      else
+        opoo <<~MSG
+          Could not configure 1Password polkit policy or browser integration.
+          To finish setup manually:
+            sudo bash #{privileged_script.shellescape}
+        MSG
+      end
+    end
+  else
+    postflight_steps do
+      run "sed", args: ["/<annotate key=\"org.freedesktop.policykit.owner\">/d",
+                        "1password-{{version}}.#{arch_suffix}/com.1password.1Password.policy.tpl"],
+                 stdout_path: "com.1password.1Password.policy", chdir: "."
 
-    fallback = []
-    fallback << "  sudo chown -R #{owner} #{app_dir.shellescape}" if needs_chown
-    fallback << "  sudo rm -f -- #{policy_target.shellescape}" if needs_policy_removal
-    raise <<~MSG
-      Failed to clean up 1Password privileged state.
-      Run the following and retry the uninstall/upgrade:
-      #{fallback.join("\n")}
-    MSG
+      write_file "caligra-1password-setup.sh", <<~SH
+        #!/usr/bin/env bash
+        set -euo pipefail
+
+        app_dir="{{staged_path}}/1password-{{version}}.#{arch_suffix}"
+        getent group onepassword >/dev/null || groupadd --system onepassword
+        install -Dm0644 "{{staged_path}}/com.1password.1Password.policy" /etc/polkit-1/actions/com.1password.1Password.policy
+        chown -R root:root "$app_dir"
+        chmod -R a+rX "$app_dir"
+        chgrp onepassword "$app_dir/1Password-BrowserSupport"
+        chmod 2755 "$app_dir/1Password-BrowserSupport"
+        for chrome_dir in "{{HOMEBREW_PREFIX}}"/Caskroom/google-chrome-linux/*/opt/google/chrome; do
+          [ -d "$chrome_dir" ] || continue
+          chown -R root:root "$chrome_dir"
+          chmod -R a+rX "$chrome_dir"
+          touch "${chrome_dir%/opt/google/chrome}/.caligra-root-owned"
+        done
+        echo "Browser integration configured. Restart your browsers to enable it."
+      SH
+      run "/bin/bash", args: ["{{staged_path}}/caligra-1password-setup.sh"], sudo: true, must_succeed: false,
+                       print_stdout: true
+    end
+  end
+
+  if shared_prefix
+    uninstall_preflight do
+      app_dir = "#{HOMEBREW_PREFIX}/Caskroom/1password-gui-linux/#{version}/1password-#{version}.#{arch_suffix}"
+      policy_target = "/etc/polkit-1/actions/com.1password.1Password.policy"
+
+      needs_chown = Dir.exist?(app_dir) && File.stat(app_dir).uid.zero?
+      needs_policy_removal = File.exist?(policy_target)
+
+      next if !needs_chown && !needs_policy_removal
+
+      current_user = Etc.getpwuid(Process.uid).name
+      current_group = Etc.getgrgid(Process.gid).name
+      owner = "#{current_user.shellescape}:#{current_group.shellescape}"
+
+      chown_line = "chown -R #{owner} #{app_dir.shellescape}" if needs_chown
+      rm_line = "rm -f -- #{policy_target.shellescape}" if needs_policy_removal
+
+      privileged_script = "#{staged_path}/caligra-1password-teardown.sh"
+      File.write(privileged_script, <<~SH)
+        #!/usr/bin/env bash
+        set -euo pipefail
+        #{chown_line}
+        #{rm_line}
+      SH
+      FileUtils.chmod(0755, privileged_script)
+
+      ohai "Cleaning up 1Password privileged state (sudo required)"
+      next if system("sudo", "--", "bash", privileged_script)
+
+      fallback = []
+      fallback << "  sudo chown -R #{owner} #{app_dir.shellescape}" if needs_chown
+      fallback << "  sudo rm -f -- #{policy_target.shellescape}" if needs_policy_removal
+      raise <<~MSG
+        Failed to clean up 1Password privileged state.
+        Run the following and retry the uninstall/upgrade:
+        #{fallback.join("\n")}
+      MSG
+    end
+  else
+    uninstall_preflight_steps do
+      write_file "caligra-1password-teardown.sh", <<~SH
+        #!/usr/bin/env bash
+        set -euo pipefail
+
+        app_dir="{{staged_path}}/1password-{{version}}.#{arch_suffix}"
+        owner="$SUDO_UID:$SUDO_GID"
+        if [ -d "$app_dir" ]; then
+          chown -R "$owner" "$app_dir"
+        fi
+        rm -f -- /etc/polkit-1/actions/com.1password.1Password.policy
+        for chrome_dir in "{{HOMEBREW_PREFIX}}"/Caskroom/google-chrome-linux/*/opt/google/chrome; do
+          [ -d "$chrome_dir" ] || continue
+          chown -R "$owner" "$chrome_dir"
+          rm -f -- "${chrome_dir%/opt/google/chrome}/.caligra-root-owned"
+        done
+      SH
+      run "/bin/bash", args: ["{{staged_path}}/caligra-1password-teardown.sh"], sudo: true
+    end
   end
 
   zap trash: [
