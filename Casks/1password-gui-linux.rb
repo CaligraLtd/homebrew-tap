@@ -63,6 +63,7 @@ cask "1password-gui-linux" do
         [ -d "$chrome_dir" ] || continue
         chown -R root:root "$chrome_dir"
         chmod -R a+rX "$chrome_dir"
+        touch "${chrome_dir%/opt/google/chrome}/.caligra-root-owned"
       done
       echo "Browser integration configured. Restart your browsers to enable it."
     SH
@@ -84,6 +85,7 @@ cask "1password-gui-linux" do
       for chrome_dir in "{{HOMEBREW_PREFIX}}"/Caskroom/google-chrome-linux/*/opt/google/chrome; do
         [ -d "$chrome_dir" ] || continue
         chown -R "$owner" "$chrome_dir"
+        rm -f -- "${chrome_dir%/opt/google/chrome}/.caligra-root-owned"
       done
     SH
     run "/bin/bash", args: ["{{staged_path}}/caligra-1password-teardown.sh"], sudo: true

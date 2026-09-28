@@ -78,14 +78,22 @@ cask "google-chrome-linux" do
     # Only runs when 1Password is installed; no reason to require sudo otherwise.
     if_path_exists "{{HOMEBREW_PREFIX}}/Caskroom/1password-gui-linux" do
       run "chown", args: ["-R", "root:root", "{{staged_path}}/opt/google/chrome"], sudo: true, must_succeed: false
+      run "chmod", args: ["-R", "a+rX", "{{staged_path}}/opt/google/chrome"], sudo: true, must_succeed: false
+      touch ".caligra-root-owned"
     end
   end
 
   uninstall_preflight_steps do
-    if_path_exists "{{HOMEBREW_PREFIX}}/Caskroom/1password-gui-linux" do
+    # Written by the postflight above and by 1password-gui-linux's setup. The
+    # 1Password Caskroom is no guide here: a 1Password installed before
+    # `*_steps` uninstalls without handing Chrome back. The marker is written
+    # even if the chown failed, so a failure here is not fatal; if Chrome is
+    # still root-owned, removing it fails anyway.
+    if_path_exists ".caligra-root-owned" do
       run "/bin/sh",
-          args: ["-c", "chown -R \"$SUDO_UID:$SUDO_GID\" \"$1\"", "sh", "{{staged_path}}/opt/google/chrome"],
-          sudo: true
+          args:         ["-c", "chown -R \"$SUDO_UID:$SUDO_GID\" \"$1\"", "sh", "{{staged_path}}/opt/google/chrome"],
+          sudo:         true,
+          must_succeed: false
     end
   end
 
