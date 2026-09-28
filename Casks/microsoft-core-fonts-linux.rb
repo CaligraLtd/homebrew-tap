@@ -19,15 +19,37 @@ cask "microsoft-core-fonts-linux" do
   end
 
   postflight_steps do
-    # Brew installs cask deps before formula deps, so `cabextract` is not yet on
-    # PATH when this postflight runs as a transitive dep of another cask. Install
-    # it now if missing.
-    unless_path_exists "{{HOMEBREW_PREFIX}}/bin/cabextract" do
-      run "{{HOMEBREW_BREW_FILE}}", args:           ["install", "cabextract"],
-                                    env:            { "HOMEBREW_NO_AUTO_UPDATE" => "1" },
-                                    writable_paths: ["{{HOMEBREW_CELLAR}}", "{{HOMEBREW_PREFIX}}/opt"],
-                                    network_access: true
-    end
+    # As a dependency of another cask this installs before its formulae, so
+    # `cabextract` may be missing, and Homebrew refuses a nested `brew install`
+    # inside a step. Stand in for the `cabextract` calls
+    # refresh-msttcore-fonts.sh makes with 7z, which the base image ships.
+    mkdir_p "bin"
+    write_file "bin/cabextract", <<~SH
+      #!/bin/sh
+      list=
+      pattern='*'
+      dir=.
+      while [ $# -gt 1 ]; do
+        case $1 in
+          -l) list=1 ;;
+          -F) shift; pattern=$1 ;;
+          --directory=*) dir=${1#--directory=} ;;
+        esac
+        shift
+      done
+      if [ -n "$list" ]; then
+        7z l -ba -ssc- "$1" "$pattern" | awk '{ print "  " $4 " | " $1 " " $2 " | " tolower($NF) }'
+        exit
+      fi
+      tmp=$(mktemp -d)
+      trap 'rm -rf "$tmp"' EXIT
+      7z e -y -ssc- -o"$tmp" "$1" "$pattern" >/dev/null || exit
+      for f in "$tmp"/*; do
+        [ -e "$f" ] || continue
+        mv -f "$f" "$dir/$(basename "$f" | tr '[:upper:]' '[:lower:]')"
+      done
+    SH
+    set_permissions "bin/cabextract", "0755"
 
     write_file "caligra-msttcore-install.sh", <<~SH
       #!/bin/sh
@@ -36,7 +58,7 @@ cask "microsoft-core-fonts-linux" do
       script="{{staged_path}}/usr/lib/msttcore-fonts-installer/refresh-msttcore-fonts.sh"
       mkdir -p "$font_dir"
       chmod 0755 "$script"
-      PATH="{{HOMEBREW_PREFIX}}/bin:$PATH" "$script" -F "$font_dir" || true
+      PATH="{{staged_path}}/bin:$PATH" "$script" -F "$font_dir" || true
       XDG_CACHE_HOME="#{Dir.home}/.cache" fc-cache -f || true
       for font in arial.ttf times.ttf verdana.ttf; do
         if [ ! -f "$font_dir/$font" ]; then
