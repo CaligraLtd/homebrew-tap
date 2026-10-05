@@ -17,6 +17,20 @@ cask "google-chrome-linux" do
 
   icon = "#{Dir.home}/.local/share/icons/hicolor/256x256/apps/google-chrome.png"
 
+  # Chrome links its own fontconfig, which writes `cache-12` files describing
+  # the 3D emoji font as an outline font without colour. Homebrew's
+  # fontconfig uses the same cache format and reads `~/.cache/fontconfig`
+  # too, so it trusts those files and stops matching that font for emoji.
+  # Chrome's cache goes to a directory of its own instead.
+  fonts_conf = <<~XML
+    <?xml version="1.0"?>
+    <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+    <fontconfig>
+      <cachedir prefix="xdg">google-chrome/fontconfig</cachedir>
+      <include ignore_missing="yes">/etc/fonts/fonts.conf</include>
+    </fontconfig>
+  XML
+
   binary "#{staged_path}/opt/google/chrome/google-chrome"
   binary "#{staged_path}/opt/google/chrome/google-chrome", target: "google-chrome-stable"
   artifact "google-chrome.desktop",
@@ -85,6 +99,8 @@ cask "google-chrome-linux" do
         end
       end
 
+      File.write("#{staged_path}/opt/google/chrome/fonts.conf", fonts_conf)
+
       # Inject a hook into Chrome's own launcher to enforce window decorations
       # on all profiles. initial_preferences only covers the Default profile;
       # this catches additional profiles on every launch.
@@ -96,6 +112,11 @@ cask "google-chrome-linux" do
           tmp="${prefs}.tmp"
           jq '.browser.custom_chrome_frame = false | .browser.theme.is_grayscale = true' "$prefs" > "$tmp" 2>/dev/null && mv "$tmp" "$prefs"
         done
+        # Until Chrome has its own font cache, the one it wrote before
+        # `fonts.conf` existed is still in the shared directory.
+        cache="${XDG_CACHE_HOME:-$HOME/.cache}"
+        [ -d "$cache/google-chrome/fontconfig" ] || rm -f "$cache"/fontconfig/*.cache-12
+        export FONTCONFIG_FILE="${FONTCONFIG_FILE:-$HERE/fonts.conf}"
       BASH
       launcher_script.sub!('exec -a "$0"', "#{patch_block}exec -a \"$0\"")
       File.write(launcher, launcher_script)
@@ -107,6 +128,8 @@ cask "google-chrome-linux" do
           chdir: "."
 
       copy "opt/google/chrome/product_logo_256.png", "google-chrome.png"
+
+      write_file "opt/google/chrome/fonts.conf", fonts_conf
 
       copy "usr/share/applications/google-chrome.desktop", "google-chrome.desktop"
       run "sed", args: ["-i",
@@ -171,6 +194,11 @@ cask "google-chrome-linux" do
           tmp="${prefs}.tmp"
           jq '.browser.custom_chrome_frame = false | .browser.theme.is_grayscale = true' "$prefs" > "$tmp" 2>/dev/null && mv "$tmp" "$prefs"
         done
+        # Until Chrome has its own font cache, the one it wrote before
+        # `fonts.conf` existed is still in the shared directory.
+        cache="${XDG_CACHE_HOME:-$HOME/.cache}"
+        [ -d "$cache/google-chrome/fontconfig" ] || rm -f "$cache"/fontconfig/*.cache-12
+        export FONTCONFIG_FILE="${FONTCONFIG_FILE:-$HERE/fonts.conf}"
         exec -a "$0"
       BASH
 
