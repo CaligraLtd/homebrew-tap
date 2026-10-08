@@ -67,6 +67,9 @@ cask "google-chrome-linux" do
       # Update icon path to use the one we copied
       new_contents = new_contents.sub(/^Icon=.*$/,
                                       "Icon=#{Dir.home}/.local/share/icons/hicolor/256x256/apps/google-chrome.png")
+      # Update the MimeType entry to include custom scheme handlers
+      new_contents = new_contents.sub(/^MimeType=/,
+                                      "MimeType=x-scheme-handler/about;x-scheme-handler/unknown;")
       File.write("#{staged_path}/google-chrome.desktop", new_contents)
 
       # Set up initial preferences for Caligra Workbench
@@ -135,6 +138,7 @@ cask "google-chrome-linux" do
       run "sed", args: ["-i",
                         "-e", "s|/usr/bin/google-chrome-stable|{{HOMEBREW_PREFIX}}/bin/google-chrome|g",
                         "-e", "0,/^Icon=/s|^Icon=.*|Icon=#{icon}|",
+                        "-e", "s|^MimeType=|MimeType=x-scheme-handler/about;x-scheme-handler/unknown;|",
                         "google-chrome.desktop"], chdir: "."
 
       # Initial preferences for Caligra Workbench
@@ -182,6 +186,15 @@ cask "google-chrome-linux" do
           puts "  sudo chown -R root:root #{chrome_dir}"
         end
       end
+
+      # GIO reads mimeinfo.cache, not the desktop files, so Chrome is not a
+      # browser to it until the cache is regenerated.
+      apps_dir = "#{Dir.home}/.local/share/applications"
+      system_command "/bin/sh",
+                     args:         ["-c",
+                                    "command -v update-desktop-database >/dev/null && " \
+                                    "update-desktop-database #{apps_dir.shellescape}"],
+                     must_succeed: false
     end
   else
     postflight_steps do
@@ -209,6 +222,14 @@ cask "google-chrome-linux" do
         run "chmod", args: ["-R", "a+rX", "{{staged_path}}/opt/google/chrome"], sudo: true, must_succeed: false
         touch ".caligra-root-owned"
       end
+
+      # GIO reads mimeinfo.cache, not the desktop files, so Chrome is not a
+      # browser to it until the cache is regenerated.
+      run "/bin/sh",
+          args:           ["-c", "command -v update-desktop-database >/dev/null && " \
+                                 "update-desktop-database #{Dir.home}/.local/share/applications"],
+          writable_paths: [".local/share/applications"], writable_base: :home,
+          must_succeed:   false
     end
   end
 
