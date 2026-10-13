@@ -35,7 +35,8 @@ jobs:
             echo "PR #$PR changes more than one cask file: $FILES"
             exit 1
           fi
-          if gh pr diff "$PR" | grep -E '^[-+]' | grep -vE '^(---|\+\+\+) ' \
+          DIFF=$(gh pr diff "$PR")
+          if printf '%s\n' "$DIFF" | grep -E '^[-+]' | grep -vE '^(---|\+\+\+) ' \
             | grep -vxE '[-+](  version "[^"]+"|  sha256 (arm64_linux: +)?"[0-9a-f]{64}",?|         x86_64_linux: "[0-9a-f]{64}")'; then
             echo "PR #$PR changes lines other than version and sha256"
             exit 1
