@@ -60,9 +60,9 @@ cask "artcraft-launcher-linux" do
 
       copy "squashfs-root/usr/share/applications/#{desktop}", desktop
       run "sed", args: ["-i",
-                        "-e", "s|^Exec=.*|Exec={{HOMEBREW_PREFIX}}/bin/artcraft-launcher|",
-                        "-e", "s|^TryExec=.*|TryExec={{HOMEBREW_PREFIX}}/bin/artcraft-launcher|",
-                        "-e", "s|^Icon=.*|Icon=#{icon}|",
+                        "-e", "0,/^Exec=/s|^Exec=.*|Exec={{HOMEBREW_PREFIX}}/bin/artcraft-launcher|",
+                        "-e", "0,/^TryExec=/s|^TryExec=.*|TryExec={{HOMEBREW_PREFIX}}/bin/artcraft-launcher|",
+                        "-e", "0,/^Icon=/s|^Icon=.*|Icon=#{icon}|",
                         desktop], chdir: "."
     end
   end
