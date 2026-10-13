@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Fetches the latest stable ArtCraft Launcher version and SHA256s from the GitHub releases API.
+# Outputs KEY=VALUE lines suitable for $GITHUB_OUTPUT or shell consumption.
+set -euo pipefail
+
+curl -sf "https://api.github.com/repos/storytold/craft-launcher/releases/latest" \
+  | jq -r '
+    (.tag_name | ltrimstr("v")) as $v |
+    (.assets | map({(.name): (.digest // "" | ltrimstr("sha256:"))}) | add) as $a |
+    "VERSION=\($v)",
+    "SHA256_ARM64=\($a["artcraft-launcher-\($v)-linux-aarch64.AppImage"])",
+    "SHA256_X86_64=\($a["artcraft-launcher-\($v)-linux-x86_64.AppImage"])"
+  '
