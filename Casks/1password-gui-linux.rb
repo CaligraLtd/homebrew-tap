@@ -132,6 +132,14 @@ cask "1password-gui-linux" do
         chmod -R a+rX "$app_dir"
         chgrp onepassword "$app_dir/1Password-BrowserSupport"
         chmod 2755 "$app_dir/1Password-BrowserSupport"
+        # The home mount is nosuid; caligra-brew's setgid wrapper execs the real binary.
+        wrapper=/var/lib/caligra-brew/1password-browser-support
+        if [ -x "$wrapper" ] && [ ! -L "$app_dir/1Password-BrowserSupport" ]; then
+          mkdir "$app_dir/browser-support"
+          mv "$app_dir/1Password-BrowserSupport" "$app_dir/browser-support/"
+          ln -s ../1password "$app_dir/browser-support/1password"
+          ln -s "$wrapper" "$app_dir/1Password-BrowserSupport"
+        fi
         for chrome_dir in "{{HOMEBREW_PREFIX}}"/Caskroom/google-chrome-linux/*/opt/google/chrome; do
           [ -d "$chrome_dir" ] || continue
           chown -R root:root "$chrome_dir"
