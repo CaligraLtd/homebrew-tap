@@ -13,6 +13,7 @@ brew tap CaligraLtd/homebrew-tap
 ## Available Casks
 
 ```bash
+brew install --cask artcraft-launcher-linux
 brew install --cask google-chrome-linux
 brew install --cask signal-desktop-linux
 brew install --cask zoom-linux
