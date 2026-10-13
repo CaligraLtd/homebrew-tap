@@ -1,0 +1,44 @@
+name: Approve bump PRs
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  approve:
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      startsWith(github.event.workflow_run.head_branch, 'auto/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Approve PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          PR=$(gh pr list --state open --head "$HEAD_BRANCH" --author cholotes \
+            --json number,headRefOid --jq ".[] | select(.headRefOid == \"$HEAD_SHA\") | .number")
+          if [ -z "$PR" ]; then
+            echo "No open cholotes PR on $HEAD_BRANCH at $HEAD_SHA"
+            exit 0
+          fi
+          FILES=$(gh pr diff "$PR" --name-only)
+          if ! printf '%s\n' "$FILES" | grep -qxE 'Casks/[a-z0-9-]+\.rb' || [ "$(printf '%s\n' "$FILES" | wc -l)" -ne 1 ]; then
+            echo "PR #$PR changes more than one cask file: $FILES"
+            exit 1
+          fi
+          DIFF=$(gh pr diff "$PR")
+          if printf '%s\n' "$DIFF" | grep -E '^[-+]' | grep -vE '^(---|\+\+\+) ' \
+            | grep -vxE '[-+](  version "[^"]+"|  sha256 (arm64_linux: +)?"[0-9a-f]{64}",?|         x86_64_linux: "[0-9a-f]{64}")'; then
+            echo "PR #$PR changes lines other than version and sha256"
+            exit 1
+          fi
+          gh pr review "$PR" --approve
