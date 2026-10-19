@@ -127,7 +127,8 @@ cask "google-chrome-linux" do
   else
     preflight_steps do
       run "/bin/bash",
-          args:  ["-o", "pipefail", "-c", "rpm2cpio google-chrome-stable-{{version}}-1.x86_64.rpm | cpio -idm"],
+          args:  ["-o", "pipefail", "-c",
+                  "rpm2cpio google-chrome-stable-{{version}}-1.x86_64.rpm | cpio -idm"],
           chdir: "."
 
       copy "opt/google/chrome/product_logo_256.png", "google-chrome.png"
@@ -135,11 +136,10 @@ cask "google-chrome-linux" do
       write_file "opt/google/chrome/fonts.conf", fonts_conf
 
       copy "usr/share/applications/google-chrome.desktop", "google-chrome.desktop"
-      run "sed", args: ["-i",
-                        "-e", "s|/usr/bin/google-chrome-stable|{{HOMEBREW_PREFIX}}/bin/google-chrome|g",
-                        "-e", "0,/^Icon=/s|^Icon=.*|Icon=#{icon}|",
-                        "-e", "s|^MimeType=|MimeType=x-scheme-handler/about;x-scheme-handler/unknown;|",
-                        "google-chrome.desktop"], chdir: "."
+      inreplace "google-chrome.desktop", "/usr/bin/google-chrome-stable", "{{HOMEBREW_PREFIX}}/bin/google-chrome"
+      inreplace "google-chrome.desktop", /^Icon=.*$/, "Icon=#{icon}", global: false
+      inreplace "google-chrome.desktop", /^MimeType=/,
+                "MimeType=x-scheme-handler/about;x-scheme-handler/unknown;"
 
       # Initial preferences for Caligra Workbench
       write_file "initial_preferences", <<~JSON

@@ -48,10 +48,9 @@ cask "warp-linux" do
   else
     preflight_steps do
       run "/bin/sh", args: ["-c", "rpm2cpio #{rpm} | cpio -idm --quiet"], chdir: "."
-      run "sed", args: ["-i",
-                        "-e", "0,/^Exec=/s|^Exec=.*|Exec={{HOMEBREW_PREFIX}}/bin/warp-terminal %U|",
-                        "-e", "0,/^Icon=/s|^Icon=.*|Icon=#{icon}|",
-                        "usr/share/applications/dev.warp.Warp.desktop"], chdir: "."
+      inreplace "usr/share/applications/dev.warp.Warp.desktop", /^Exec=.*$/,
+                "Exec={{HOMEBREW_PREFIX}}/bin/warp-terminal %U", global: false
+      inreplace "usr/share/applications/dev.warp.Warp.desktop", /^Icon=.*$/, "Icon=#{icon}", global: false
     end
   end
 

@@ -76,10 +76,8 @@ cask "zoom-linux" do
       mkdir_p ".local/share/icons/hicolor/256x256/apps", base: :home
 
       copy "usr/share/applications/Zoom.desktop", "Zoom.desktop"
-      run "sed", args: ["-i",
-                        "-e", "0,/^Exec=/s|^Exec=.*|Exec={{HOMEBREW_PREFIX}}/bin/zoom %U|",
-                        "-e", "0,/^Icon=/s|^Icon=.*|Icon=#{icon}|",
-                        "Zoom.desktop"], chdir: "."
+      inreplace "Zoom.desktop", /^Exec=.*$/, "Exec={{HOMEBREW_PREFIX}}/bin/zoom %U", global: false
+      inreplace "Zoom.desktop", /^Icon=.*$/, "Icon=#{icon}", global: false
     end
   end
 
@@ -119,9 +117,11 @@ cask "zoom-linux" do
         if [ ! -f "$conf" ]; then
           printf '[General]\\nshowSystemTitlebar=true\\n' > "$conf"
         elif grep -q '^showSystemTitlebar=' "$conf"; then
-          sed -i 's/^showSystemTitlebar=.*/showSystemTitlebar=true/' "$conf"
+          sed 's/^showSystemTitlebar=.*/showSystemTitlebar=true/' "$conf" > "$conf.tmp"
+          mv "$conf.tmp" "$conf"
         elif grep -q '^\\[General\\]$' "$conf"; then
-          sed -i 's/^\\[General\\]$/[General]\\nshowSystemTitlebar=true/' "$conf"
+          sed 's/^\\[General\\]$/[General]\\nshowSystemTitlebar=true/' "$conf" > "$conf.tmp"
+          mv "$conf.tmp" "$conf"
         else
           printf '\\n[General]\\nshowSystemTitlebar=true\\n' >> "$conf"
         fi

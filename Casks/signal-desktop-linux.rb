@@ -68,10 +68,8 @@ cask "signal-desktop-linux" do
       mkdir_p ".local/share/icons/hicolor/512x512/apps", base: :home
 
       copy "usr/share/applications/signal-desktop.desktop", "signal-desktop.desktop"
-      run "sed", args: ["-i",
-                        "-e", "0,/^Exec=/s|^Exec=.*|Exec={{HOMEBREW_PREFIX}}/bin/signal-desktop %U|",
-                        "-e", "0,/^Icon=/s|^Icon=.*|Icon=#{icon}|",
-                        "signal-desktop.desktop"], chdir: "."
+      inreplace "signal-desktop.desktop", /^Exec=.*$/, "Exec={{HOMEBREW_PREFIX}}/bin/signal-desktop %U", global: false
+      inreplace "signal-desktop.desktop", /^Icon=.*$/, "Icon=#{icon}", global: false
     end
   end
 

@@ -59,11 +59,9 @@ cask "artcraft-launcher-linux" do
       mkdir_p ".local/share/icons/hicolor/512x512/apps", base: :home
 
       copy "squashfs-root/usr/share/applications/#{desktop}", desktop
-      run "sed", args: ["-i",
-                        "-e", "0,/^Exec=/s|^Exec=.*|Exec={{HOMEBREW_PREFIX}}/bin/artcraft-launcher|",
-                        "-e", "0,/^TryExec=/s|^TryExec=.*|TryExec={{HOMEBREW_PREFIX}}/bin/artcraft-launcher|",
-                        "-e", "0,/^Icon=/s|^Icon=.*|Icon=#{icon}|",
-                        desktop], chdir: "."
+      inreplace desktop, /^Exec=.*$/, "Exec={{HOMEBREW_PREFIX}}/bin/artcraft-launcher", global: false
+      inreplace desktop, /^TryExec=.*$/, "TryExec={{HOMEBREW_PREFIX}}/bin/artcraft-launcher", global: false
+      inreplace desktop, /^Icon=.*$/, "Icon=#{icon}", global: false
     end
   end
 
