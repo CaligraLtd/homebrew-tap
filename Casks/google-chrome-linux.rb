@@ -11,6 +11,11 @@ cask "google-chrome-linux" do
   desc "Web browser from Google"
   homepage "https://www.google.com/chrome/"
 
+  livecheck do
+    url "https://dl.google.com/linux/chrome/deb/dists/stable/main/binary-amd64/Packages"
+    regex(/^Package: google-chrome-stable\n(?:.+\n)*?Version: (\d+(?:\.\d+)+)/)
+  end
+
   depends_on arch: :x86_64
   depends_on cask: "caligraltd/tap/microsoft-core-fonts-linux"
   depends_on cask: "font-noto-color-emoji"
