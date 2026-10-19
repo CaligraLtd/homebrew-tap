@@ -14,7 +14,7 @@ cask "signal-desktop-linux" do
 
   livecheck do
     url "https://updates.signal.org/desktop/apt/dists/xenial/main/binary-amd64/Packages"
-    regex(/^Package: signal-desktop\nArchitecture: amd64\nVersion: (\S+)/m)
+    regex(/^Package: signal-desktop\n(?:.+\n)*?Version: (\S+)/)
     strategy :page_match do |page, regex|
       # Filter out ~beta versions; only stable signal-desktop entries.
       page.scan(regex).flatten.reject { |v| v.include?("beta") }
