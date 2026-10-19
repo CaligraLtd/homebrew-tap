@@ -4,10 +4,15 @@ cask "microsoft-core-fonts-linux" do
   version "2.6"
   sha256 "55d7f3a86533225634ff3ea2384b4356d9665a29cc7eeacff16602a1714afbb4"
 
-  url "https://downloads.sourceforge.net/project/mscorefonts2/rpms/msttcore-fonts-installer-#{version}-1.noarch.rpm"
+  url "https://downloads.sourceforge.net/mscorefonts2/rpms/msttcore-fonts-installer-#{version}-1.noarch.rpm"
   name "Microsoft Core Fonts"
   desc "Microsoft TrueType core fonts for the Web"
   homepage "https://mscorefonts2.sourceforge.net/"
+
+  livecheck do
+    url :url
+    regex(/msttcore-fonts-installer[._-]v?(\d+(?:\.\d+)+)-\d+\.noarch\.rpm/i)
+  end
 
   depends_on formula: "cabextract"
 
