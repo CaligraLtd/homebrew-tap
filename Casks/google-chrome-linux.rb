@@ -47,7 +47,7 @@ cask "google-chrome-linux" do
     preflight do
       system_command "bash",
                      args:         ["-o", "pipefail", "-c",
-                                    "rpm2cpio google-chrome-stable-#{version}-1.x86_64.rpm | cpio -idm"],
+                                    "rpm2cpio google-chrome-stable-#{version}-1.x86_64.rpm | cpio -idm --quiet"],
                      chdir:        staged_path,
                      must_succeed: true
 
@@ -128,7 +128,7 @@ cask "google-chrome-linux" do
     preflight_steps do
       run "/bin/bash",
           args:  ["-o", "pipefail", "-c",
-                  "rpm2cpio google-chrome-stable-{{version}}-1.x86_64.rpm | cpio -idm"],
+                  "rpm2cpio google-chrome-stable-{{version}}-1.x86_64.rpm | cpio -idm --quiet"],
           chdir: "."
 
       copy "opt/google/chrome/product_logo_256.png", "google-chrome.png"
