@@ -54,6 +54,25 @@ cask "warp-linux" do
     end
   end
 
+  if shared_prefix
+    postflight do
+      apps_dir = "#{Dir.home}/.local/share/applications"
+      system_command "/bin/sh",
+                     args:         ["-c",
+                                    "command -v update-desktop-database >/dev/null && " \
+                                    "update-desktop-database #{apps_dir.shellescape}"],
+                     must_succeed: false
+    end
+  else
+    postflight_steps do
+      run "/bin/sh",
+          args:           ["-c", "command -v update-desktop-database >/dev/null && " \
+                                 "update-desktop-database #{Dir.home}/.local/share/applications"],
+          writable_paths: [".local/share/applications"], writable_base: :home,
+          must_succeed:   false
+    end
+  end
+
   zap trash: [
     "~/.cache/warp-terminal",
     "~/.config/warp-terminal",

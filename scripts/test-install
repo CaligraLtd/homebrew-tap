@@ -66,7 +66,8 @@ echo "Testing casks: ${cask_list[*]}"
 
 echo "=== Installing system dependencies ==="
 dnf install -y \
-  git curl sudo gcc gcc-c++ make procps-ng file zstd xz binutils xdg-utils cpio systemd-devel 7zip
+  git curl sudo gcc gcc-c++ make procps-ng file zstd xz binutils xdg-utils cpio systemd-devel 7zip \
+  glib2 desktop-file-utils
 
 echo ""
 echo "=== Setting up Homebrew ==="
@@ -91,16 +92,44 @@ su -l brewci -c "
   brew trust caligraltd/tap
 "
 
+desktop_files() {
+  local dir
+  for dir in /home/brewci/.local/share/applications /home/brewci/.b/share/applications; do
+    if [ -d "$dir" ]; then find "$dir" -maxdepth 1 -name '*.desktop'; fi
+  done | sort
+}
+
+# GIO resolves a MimeType only through the directory's mimeinfo.cache, so a
+# desktop file installed without update-desktop-database handles nothing.
+check_mime_handlers() {
+  local file id type handlers ok=true
+  while IFS= read -r file; do
+    [ -n "$file" ] || continue
+    id="$(basename "$file")"
+    for type in $(sed -n 's/^MimeType=//p' "$file" | tr ';' ' '); do
+      handlers="$(su -l brewci -c "gio mime '$type'" 2>/dev/null || true)"
+      if grep -qxF "$(printf '\t%s' "$id")" <<<"$handlers"; then
+        echo "handler: $type -> $id"
+      else
+        echo "no handler: $id declares $type, but gio mime does not list it" >&2
+        ok=false
+      fi
+    done
+  done
+  $ok
+}
+
 # Install each cask as the test user
 failed=()
 for cask in "${cask_list[@]}"; do
   echo ""
   echo "=== Installing $cask ==="
+  before="$(desktop_files)"
   if su -l brewci -c "
     eval \"\$($BREW shellenv)\"
     export HOMEBREW_NO_AUTO_UPDATE=1
     brew install --cask caligraltd/tap/$cask
-  "; then
+  " && comm -13 <(echo "$before") <(desktop_files) | check_mime_handlers; then
     echo "pass: $cask"
   else
     echo "FAIL: $cask"
