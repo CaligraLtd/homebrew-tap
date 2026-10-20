@@ -126,9 +126,12 @@ Name it `<upstream>-linux`. Conventions that hold across the tap:
   do not.)
 - `zap trash:` lists user-level paths only. Root-owned paths cannot be removed
   by a user-run `zap`.
-- If the app registers a URL scheme, run `update-desktop-database` on
-  `~/.local/share/applications` in `postflight`, or the handler does not
-  resolve until something else refreshes the cache.
+- If the `.desktop` file has a `MimeType=` line (URL schemes and file types
+  alike), run `update-desktop-database` on `~/.local/share/applications` in
+  `postflight`, in both `shared_prefix` branches. Without it GIO resolves none
+  of the types, and `scripts/test-install` fails the cask. Check for
+  `MimeType=` in the payload you extracted in §1. Details and the block to
+  copy are in `.agents/DESKTOP-INTEGRATION.md`.
 
 User-editable config files are never `artifact` targets. An `artifact` is
 cask-owned: it moves the file in on install and back out on uninstall, and

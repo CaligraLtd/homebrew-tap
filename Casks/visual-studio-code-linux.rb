@@ -147,6 +147,13 @@ cask "visual-studio-code-linux" do
           "window.titleBarStyle" => "native",
         }))
       end
+
+      apps_dir = "#{Dir.home}/.local/share/applications"
+      system_command "/bin/sh",
+                     args:         ["-c",
+                                    "command -v update-desktop-database >/dev/null && " \
+                                    "update-desktop-database #{apps_dir.shellescape}"],
+                     must_succeed: false
     end
   else
     postflight_steps do
@@ -158,6 +165,12 @@ cask "visual-studio-code-linux" do
           }
         JSON
       end
+
+      run "/bin/sh",
+          args:           ["-c", "command -v update-desktop-database >/dev/null && " \
+                                 "update-desktop-database #{Dir.home}/.local/share/applications"],
+          writable_paths: [".local/share/applications"], writable_base: :home,
+          must_succeed:   false
     end
   end
 
