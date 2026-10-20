@@ -102,12 +102,13 @@ desktop_files() {
 # GIO resolves a MimeType only through the directory's mimeinfo.cache, so a
 # desktop file installed without update-desktop-database handles nothing.
 check_mime_handlers() {
-  local file id type ok=true
+  local file id type handlers ok=true
   while IFS= read -r file; do
     [ -n "$file" ] || continue
     id="$(basename "$file")"
     for type in $(sed -n 's/^MimeType=//p' "$file" | tr ';' ' '); do
-      if su -l brewci -c "gio mime '$type'" 2>/dev/null | grep -qxF "$(printf '\t%s' "$id")"; then
+      handlers="$(su -l brewci -c "gio mime '$type'" 2>/dev/null || true)"
+      if grep -qxF "$(printf '\t%s' "$id")" <<<"$handlers"; then
         echo "handler: $type -> $id"
       else
         echo "no handler: $id declares $type, but gio mime does not list it" >&2
