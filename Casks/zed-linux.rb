@@ -18,10 +18,52 @@ cask "zed-linux" do
   binary "zed.app/bin/zed"
   artifact "dev.zed.Zed.desktop",
            target: "#{Dir.home}/.local/share/applications/dev.zed.Zed.desktop"
-  artifact "zed.app/share/icons/hicolor/512x512/apps/zed.png",
+  # Zed's self-updater rsyncs each release over `zed.app` with `--delete`, so
+  # nothing Homebrew moves may come from inside it.
+  artifact "zed-512.png",
            target: "#{Dir.home}/.local/share/icons/hicolor/512x512/apps/zed.png"
-  artifact "zed.app/share/icons/hicolor/1024x1024/apps/zed.png",
+  artifact "zed-1024.png",
            target: "#{Dir.home}/.local/share/icons/hicolor/1024x1024/apps/zed.png"
+
+  # Installs from before the change above can't be upgraded once Zed has
+  # updated itself: the rsync replaced the icon symlinks Homebrew left in
+  # `zed.app` with files, and an upgrade that trips over them aborts after
+  # moving the `.desktop` file back into the Caskroom, without rolling back.
+  # Homebrew takes the old version's artifacts from the install receipt, so no
+  # flight block runs before that; repair the Caskroom when the cask loads.
+  # Each moved artifact's source must be a symlink to an existing target.
+  begin
+    receipt_path = caskroom_path/".metadata/INSTALL_RECEIPT.json"
+    if receipt_path.exist?
+      require "json"
+      receipt = JSON.parse(receipt_path.read)
+      installed_path = caskroom_path/receipt.dig("source", "version").to_s
+      if installed_path.directory? && installed_path != caskroom_path
+        receipt.fetch("uninstall_artifacts", []).each do |entry|
+          source, options = entry["artifact"]
+          next if !source.is_a?(String) || !options.is_a?(Hash) || !options["target"].is_a?(String)
+
+          source = installed_path/source
+          target = Pathname(options["target"])
+          next if source.symlink? && source.readlink == target && target.exist?
+
+          target.dirname.mkpath
+          if source.symlink? || !source.exist?
+            source.unlink if source.symlink?
+            FileUtils.touch(target) unless target.exist?
+          elsif target.exist?
+            FileUtils.rm_r(source)
+          else
+            FileUtils.mv(source, target)
+          end
+          source.dirname.mkpath
+          source.make_symlink(target)
+        end
+      end
+    end
+  rescue => e
+    opoo "Could not repair the zed-linux Caskroom: #{e.message}"
+  end
 
   # Workbench 0.10.32 and older share a root-owned `/home/linuxbrew` prefix.
   # Homebrew chmods `$HOMEBREW_PREFIX/bin` after every `*_steps` block, which
@@ -33,6 +75,9 @@ cask "zed-linux" do
       FileUtils.mkdir_p("#{Dir.home}/.local/share/applications")
       FileUtils.mkdir_p("#{Dir.home}/.local/share/icons/hicolor/512x512/apps")
       FileUtils.mkdir_p("#{Dir.home}/.local/share/icons/hicolor/1024x1024/apps")
+
+      FileUtils.cp("#{staged_path}/zed.app/share/icons/hicolor/512x512/apps/zed.png", "#{staged_path}/zed-512.png")
+      FileUtils.cp("#{staged_path}/zed.app/share/icons/hicolor/1024x1024/apps/zed.png", "#{staged_path}/zed-1024.png")
 
       File.write("#{staged_path}/dev.zed.Zed.desktop", <<~EOS)
         [Desktop Entry]
@@ -60,6 +105,9 @@ cask "zed-linux" do
       mkdir_p ".local/share/applications", base: :home
       mkdir_p ".local/share/icons/hicolor/512x512/apps", base: :home
       mkdir_p ".local/share/icons/hicolor/1024x1024/apps", base: :home
+
+      copy "zed.app/share/icons/hicolor/512x512/apps/zed.png", "zed-512.png"
+      copy "zed.app/share/icons/hicolor/1024x1024/apps/zed.png", "zed-1024.png"
 
       write_file "dev.zed.Zed.desktop", <<~EOS
         [Desktop Entry]
@@ -100,6 +148,7 @@ cask "zed-linux" do
           "buffer_font_size"     => 15,
           "theme"                => { "mode" => "system", "light" => "One Light", "dark" => "One Dark" },
           "window_decorations"   => "server",
+          "auto_update"          => false,
         }))
       end
 
@@ -133,7 +182,8 @@ cask "zed-linux" do
               "light": "One Light",
               "dark": "One Dark"
             },
-            "window_decorations": "server"
+            "window_decorations": "server",
+            "auto_update": false
           }
         JSON
       end
