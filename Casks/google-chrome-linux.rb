@@ -125,6 +125,9 @@ cask "google-chrome-linux" do
         cache="${XDG_CACHE_HOME:-$HOME/.cache}"
         [ -d "$cache/google-chrome/fontconfig" ] || rm -f "$cache"/fontconfig/*.cache-12
         export FONTCONFIG_FILE="${FONTCONFIG_FILE:-$HERE/fonts.conf}"
+        # Makes Chrome print the requested number of copies (workbench#1521)
+        shim=/usr/lib64/caligra/libgtkprint-shim.so
+        [ -f "$shim" ] && export LD_PRELOAD="$shim${LD_PRELOAD:+:$LD_PRELOAD}"
       BASH
       launcher_script.sub!('exec -a "$0"', "#{patch_block}exec -a \"$0\"")
       File.write(launcher, launcher_script)
@@ -217,6 +220,9 @@ cask "google-chrome-linux" do
         cache="${XDG_CACHE_HOME:-$HOME/.cache}"
         [ -d "$cache/google-chrome/fontconfig" ] || rm -f "$cache"/fontconfig/*.cache-12
         export FONTCONFIG_FILE="${FONTCONFIG_FILE:-$HERE/fonts.conf}"
+        # Makes Chrome print the requested number of copies (workbench#1521)
+        shim=/usr/lib64/caligra/libgtkprint-shim.so
+        [ -f "$shim" ] && export LD_PRELOAD="$shim${LD_PRELOAD:+:$LD_PRELOAD}"
         exec -a "$0"
       BASH
 
