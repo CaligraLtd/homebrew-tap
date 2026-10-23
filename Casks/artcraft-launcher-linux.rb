@@ -2,9 +2,9 @@ cask "artcraft-launcher-linux" do
   arch arm: "aarch64", intel: "x86_64"
   os linux: "linux"
 
-  version "0.6.1"
-  sha256 arm64_linux:  "dbc6abefab139f821315a6486665e2f882b32f11e36b20870b2bee83e5779588",
-         x86_64_linux: "4c8679a160e841b1789ce5c4737fdd0f9c589823aaf2e607777181991f82e1a2"
+  version "0.7.0"
+  sha256 arm64_linux:  "82fb86a4c078c8dee3e167de2eca704e178a8b8f0d8273aab57cf7ede0fa69b4",
+         x86_64_linux: "f80b9bdcfeb92bc88a54d07e7f2e03f1880f3fcf25c1511864b3d4118ecee1d8"
 
   # The AppImage, not the tarball: run as an AppImage, the launcher installs
   # suite apps as AppImages in ~/Applications. Run any other way, it picks the
