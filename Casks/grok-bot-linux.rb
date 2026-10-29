@@ -15,16 +15,14 @@ cask "grok-bot-linux" do
 
   livecheck do
     url "https://downloads.cursor.com/aptrepo/dists/grok-bot/main/binary-amd64/Packages"
-    regex(/^Package: grok-bot\n(?:.+\n)*?Version: (\S+)/)
+    regex(/^Package: grok-bot\n(?:.+\n)*?Version: (\d+(?:\.\d+)+)$/)
   end
 
   deb = "grok-bot_#{version}_#{arch}.deb"
   icon = "#{Dir.home}/.local/share/icons/hicolor/512x512/apps/grok-bot.png"
-  # The package installs to `/opt/Grok Bot`. Electron's setuid sandbox fallback
-  # cannot exec from a path with a space (electron/electron#44414).
-  extract = "ar x #{deb} && tar -xf data.tar.xz && mv 'opt/Grok Bot' opt/grok-bot"
+  extract = "ar x #{deb} && tar -xf data.tar.*"
 
-  binary "#{staged_path}/opt/grok-bot/grok-bot", target: "grok-bot"
+  binary "#{staged_path}/opt/Grok Bot/grok-bot", target: "grok-bot"
   artifact "grok-bot.desktop",
            target: "#{Dir.home}/.local/share/applications/grok-bot.desktop"
   artifact "usr/share/icons/hicolor/512x512/apps/grok-bot.png",
