@@ -113,8 +113,8 @@ Name it `<upstream>-linux`. Conventions that hold across the tap:
 - Single arch: `depends_on arch: :x86_64`. The `arch intel:/arm:` stanza is only
   for interpolating `#{arch}` into a URL, so a single-arch cask does not use it.
 - Dual arch: `sha256 arm64_linux: "...", x86_64_linux: "..."`.
-- `url` points at the versioned CDN path, never `latest`. Add
-  `verified: "host/path/"` when the download host differs from the homepage.
+- `url` points at the versioned CDN path, never `latest`. Do not add
+  `verified:`; Homebrew deprecated it.
 - `livecheck` is mandatory. `strategy :json` for a version API, `:page_match`
   for apt/rpm metadata, `:github_latest` for GitHub releases. Verify it with
   `brew livecheck` (§5) before committing.
@@ -205,7 +205,7 @@ Run all of it before proposing a commit.
 
 ```bash
 bash -n scripts/fetch-<name>-version
-brew style Casks/<name>-linux.rb        # one frozen_string_literal offense is expected
+brew style Casks/<name>-linux.rb        # Cask/InstallSteps offenses from the shared_prefix branches are expected
 scripts/test-install <name>-linux       # full install in fedora:43 via podman
 ```
 
