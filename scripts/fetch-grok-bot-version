@@ -7,6 +7,7 @@ set -euo pipefail
 REPO="https://downloads.cursor.com/aptrepo"
 
 # latest <arch>: "<version> <sha256>" of the newest grok-bot in that arch's Packages.
+# Only plain X.Y.Z versions: skips betas and epochs.
 latest() {
   curl -fsSL "${REPO}/dists/grok-bot/main/binary-$1/Packages" \
     | awk -v RS= '/(^|\n)Package: grok-bot\n/ {
@@ -16,7 +17,7 @@ latest() {
           if (line[i] ~ /^Version: /) v = substr(line[i], 10)
           if (line[i] ~ /^SHA256: /) s = substr(line[i], 9)
         }
-        if (v != "" && s != "") print v, s
+        if (v ~ /^[0-9]+(\.[0-9]+)+$/ && s != "") print v, s
       }' \
     | sort -V | tail -n 1
 }
@@ -24,7 +25,7 @@ latest() {
 AMD64=$(latest amd64) || { echo "could not read the amd64 Packages file" >&2; exit 1; }
 ARM64=$(latest arm64) || { echo "could not read the arm64 Packages file" >&2; exit 1; }
 if [ -z "$AMD64" ] || [ -z "$ARM64" ]; then
-  echo "grok-bot not found in apt Packages metadata" >&2
+  echo "no grok-bot release with a plain X.Y.Z version in apt Packages metadata" >&2
   exit 1
 fi
 

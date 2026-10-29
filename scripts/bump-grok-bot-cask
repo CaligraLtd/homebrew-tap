@@ -9,8 +9,12 @@ SHA256_X86_64="${3:?usage: bump-grok-bot-cask <version> <sha256_arm64> <sha256_x
 CASK="Casks/grok-bot-linux.rb"
 
 CURRENT=$(awk -F'"' '/^ *version "/{print $2}' "$CASK")
-if [ "$VERSION" = "$CURRENT" ]; then
-  echo "Already at $VERSION" >&2
+CURRENT_SHA_ARM64=$(awk -F'"' '/arm64_linux: *"/{print $2}' "$CASK")
+CURRENT_SHA_X86_64=$(awk -F'"' '/x86_64_linux: *"/{print $2}' "$CASK")
+if [ "$VERSION" = "$CURRENT" ] \
+  && [ "$SHA256_ARM64" = "$CURRENT_SHA_ARM64" ] \
+  && [ "$SHA256_X86_64" = "$CURRENT_SHA_X86_64" ]; then
+  echo "Already at $VERSION with matching SHAs" >&2
   exit 0
 fi
 
