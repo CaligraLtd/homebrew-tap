@@ -6,7 +6,8 @@ cask "grok-bot-linux" do
   sha256 arm64_linux:  "ed9f29cc1fa147267d9171916caa7b44ecbfc36d766c8d7f2ce089bddc2da94d",
          x86_64_linux: "55d2a34cfff762342251ffa9b1321a70f08b603f227f886e18b2c1c5e73ded1d"
 
-  # Grok Bot ships Linux only as a .deb, from the apt repo its postinst adds.
+  # The .deb, not the AppImage: run as an AppImage, Grok Bot rewrites its
+  # .desktop file on every launch and turns its own updater back on.
   url "https://downloads.cursor.com/aptrepo/pool/grok-bot/g/gr/grok-bot_#{version}_#{arch}.deb"
   name "Grok Bot"
   desc "Always-on AI teammates from xAI"
@@ -43,7 +44,7 @@ cask "grok-bot-linux" do
 
       # Keep the `-- %U` after Exec: the login comes back as a grokbot:// link.
       text = File.read("#{staged_path}/usr/share/applications/grok-bot.desktop")
-      text.sub!(/^Exec=grok-bot/, "Exec=#{HOMEBREW_PREFIX}/bin/grok-bot")
+      text.sub!(/^Exec=.*$/, "Exec=#{HOMEBREW_PREFIX}/bin/grok-bot -- %U")
       text.sub!(/^Icon=.*$/, "Icon=#{icon}")
       File.write("#{staged_path}/grok-bot.desktop", text)
     end
@@ -56,7 +57,7 @@ cask "grok-bot-linux" do
 
       # Keep the `-- %U` after Exec: the login comes back as a grokbot:// link.
       copy "usr/share/applications/grok-bot.desktop", "grok-bot.desktop"
-      inreplace "grok-bot.desktop", /^Exec=grok-bot/, "Exec={{HOMEBREW_PREFIX}}/bin/grok-bot", global: false
+      inreplace "grok-bot.desktop", /^Exec=.*$/, "Exec={{HOMEBREW_PREFIX}}/bin/grok-bot -- %U", global: false
       inreplace "grok-bot.desktop", /^Icon=.*$/, "Icon=#{icon}", global: false
     end
   end

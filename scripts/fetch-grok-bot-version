@@ -4,11 +4,11 @@
 # consumption.
 set -euo pipefail
 
-DIST="https://downloads.cursor.com/aptrepo/dists/grok-bot/main"
+REPO="https://downloads.cursor.com/aptrepo"
 
 # latest <arch>: "<version> <sha256>" of the newest grok-bot in that arch's Packages.
 latest() {
-  curl -fsSL "${DIST}/binary-$1/Packages" \
+  curl -fsSL "${REPO}/dists/grok-bot/main/binary-$1/Packages" \
     | awk -v RS= '/(^|\n)Package: grok-bot\n/ {
         v = s = ""
         n = split($0, line, "\n")
@@ -21,13 +21,16 @@ latest() {
     | sort -V | tail -n 1
 }
 
-read -r VERSION SHA256_X86_64 < <(latest amd64)
-read -r VERSION_ARM64 SHA256_ARM64 < <(latest arm64)
-
-if [ -z "${VERSION:-}" ] || [ -z "${VERSION_ARM64:-}" ]; then
+AMD64=$(latest amd64) || { echo "could not read the amd64 Packages file" >&2; exit 1; }
+ARM64=$(latest arm64) || { echo "could not read the arm64 Packages file" >&2; exit 1; }
+if [ -z "$AMD64" ] || [ -z "$ARM64" ]; then
   echo "grok-bot not found in apt Packages metadata" >&2
   exit 1
 fi
+
+read -r VERSION SHA256_X86_64 <<<"$AMD64"
+read -r VERSION_ARM64 SHA256_ARM64 <<<"$ARM64"
+
 if [ "$VERSION" != "$VERSION_ARM64" ]; then
   echo "amd64 is at $VERSION but arm64 is at $VERSION_ARM64; try again later." >&2
   exit 1
