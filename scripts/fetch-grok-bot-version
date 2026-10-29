@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Fetches the latest grok-bot version and SHA256s from the apt repository
+# metadata. Outputs KEY=VALUE lines suitable for $GITHUB_OUTPUT or shell
+# consumption.
+set -euo pipefail
+
+DIST="https://downloads.cursor.com/aptrepo/dists/grok-bot/main"
+
+# latest <arch>: "<version> <sha256>" of the newest grok-bot in that arch's Packages.
+latest() {
+  curl -fsSL "${DIST}/binary-$1/Packages" \
+    | awk -v RS= '/(^|\n)Package: grok-bot\n/ {
+        v = s = ""
+        n = split($0, line, "\n")
+        for (i = 1; i <= n; i++) {
+          if (line[i] ~ /^Version: /) v = substr(line[i], 10)
+          if (line[i] ~ /^SHA256: /) s = substr(line[i], 9)
+        }
+        if (v != "" && s != "") print v, s
+      }' \
+    | sort -V | tail -n 1
+}
+
+read -r VERSION SHA256_X86_64 < <(latest amd64)
+read -r VERSION_ARM64 SHA256_ARM64 < <(latest arm64)
+
+if [ -z "${VERSION:-}" ] || [ -z "${VERSION_ARM64:-}" ]; then
+  echo "grok-bot not found in apt Packages metadata" >&2
+  exit 1
+fi
+if [ "$VERSION" != "$VERSION_ARM64" ]; then
+  echo "amd64 is at $VERSION but arm64 is at $VERSION_ARM64; try again later." >&2
+  exit 1
+fi
+
+echo "VERSION=${VERSION}"
+echo "SHA256_ARM64=${SHA256_ARM64}"
+echo "SHA256_X86_64=${SHA256_X86_64}"

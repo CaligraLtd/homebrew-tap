@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Updates the grok-bot-linux cask to a new version+shas, verifying the .debs exist first.
+# Usage: bump-grok-bot-cask <version> <sha256_arm64> <sha256_x86_64>
+set -euo pipefail
+
+VERSION="${1:?usage: bump-grok-bot-cask <version> <sha256_arm64> <sha256_x86_64>}"
+SHA256_ARM64="${2:?usage: bump-grok-bot-cask <version> <sha256_arm64> <sha256_x86_64>}"
+SHA256_X86_64="${3:?usage: bump-grok-bot-cask <version> <sha256_arm64> <sha256_x86_64>}"
+CASK="Casks/grok-bot-linux.rb"
+
+CURRENT=$(awk -F'"' '/^ *version "/{print $2}' "$CASK")
+if [ "$VERSION" = "$CURRENT" ]; then
+  echo "Already at $VERSION" >&2
+  exit 0
+fi
+
+for ARCH in amd64 arm64; do
+  URL="https://downloads.cursor.com/aptrepo/pool/grok-bot/g/gr/grok-bot_${VERSION}_${ARCH}.deb"
+  STATUS=$(curl -sILo /dev/null -w "%{http_code}" "$URL")
+  if [ "$STATUS" != "200" ]; then
+    echo ".deb not found at $URL (HTTP $STATUS)" >&2
+    exit 1
+  fi
+done
+
+sed -i "s/version \".*\"/version \"${VERSION}\"/" "$CASK"
+sed -i 's/\(arm64_linux: *"\)[^"]*"/\1'"${SHA256_ARM64}"'"/' "$CASK"
+sed -i 's/\(x86_64_linux: *"\)[^"]*"/\1'"${SHA256_X86_64}"'"/' "$CASK"
+
+echo "CHANGED=true"
+echo "$CURRENT -> $VERSION" >&2
