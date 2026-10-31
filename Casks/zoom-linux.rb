@@ -1,8 +1,8 @@
 cask "zoom-linux" do
   os linux: "linux"
 
-  version "7.2.1.5760"
-  sha256 "79b6fc1ffd9fd2e2d136e898aed9c8ed6ab672a83841de4220ca4c14005d76fd"
+  version "7.2.5.6661"
+  sha256 "2659f4afa8eee31357aed88dcb2f5596983e3e2d19d38f25d0cde6b96474a186"
 
   url "https://cdn.zoom.us/prod/#{version}/zoom_x86_64.rpm"
   name "Zoom Workplace"
