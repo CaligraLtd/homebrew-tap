@@ -16,7 +16,7 @@ jobs:
   test-install:
     runs-on: ubuntu-latest
     container:
-      image: fedora:43
+      image: fedora:${{ vars.FEDORA_BASE_VERSION_CURRENT }}
     steps:
       - name: Install git
         run: dnf install -y git
