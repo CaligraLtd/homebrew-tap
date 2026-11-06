@@ -84,7 +84,8 @@ cask "microsoft-core-fonts-linux" do
           7z l -ba -ssc- "$1" "$pattern" | awk '{ print "  " $4 " | " $1 " " $2 " | " tolower($NF) }'
           exit
         fi
-        tmp=$(mktemp -d)
+        # Not /var/tmp: mv across file systems prints an SELinux error per font.
+        tmp=$(mktemp -d "$dir/.cabextract.XXXXXX")
         trap 'rm -rf "$tmp"' EXIT
         7z e -y -ssc- -o"$tmp" "$1" "$pattern" >/dev/null || exit
         for f in "$tmp"/*; do
