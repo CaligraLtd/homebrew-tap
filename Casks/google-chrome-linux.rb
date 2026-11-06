@@ -1,12 +1,14 @@
 require "etc"
 
 cask "google-chrome-linux" do
+  arch arm: "aarch64", intel: "x86_64"
   os linux: "linux"
 
   version "157.0.8103.38"
-  sha256 "58278c9fc20de0c356106848ddba8ab17118968b88d17bd95ab273330efb0a5a"
+  sha256 arm64_linux:  "143bdac78a44d0bdfa16d7b0a5fd49de4b6951cab78889cc41fc88f512e218fd",
+         x86_64_linux: "58278c9fc20de0c356106848ddba8ab17118968b88d17bd95ab273330efb0a5a"
 
-  url "https://dl.google.com/linux/chrome/rpm/stable/x86_64/google-chrome-stable-#{version}-1.x86_64.rpm"
+  url "https://dl.google.com/linux/chrome/rpm/stable/#{arch}/google-chrome-stable-#{version}-1.#{arch}.rpm"
   name "Google Chrome"
   desc "Web browser from Google"
   homepage "https://www.google.com/chrome/"
@@ -16,10 +18,10 @@ cask "google-chrome-linux" do
     regex(/^Package: google-chrome-stable\n(?:.+\n)*?Version: (\d+(?:\.\d+)+)/)
   end
 
-  depends_on arch: :x86_64
   depends_on cask: "caligraltd/tap/microsoft-core-fonts-linux"
   depends_on cask: "font-noto-color-emoji"
 
+  rpm = "google-chrome-stable-#{version}-1.#{arch}.rpm"
   icon = "#{Dir.home}/.local/share/icons/hicolor/256x256/apps/google-chrome.png"
 
   # Chrome links its own fontconfig, which writes `cache-12` files describing
@@ -52,7 +54,7 @@ cask "google-chrome-linux" do
     preflight do
       system_command "bash",
                      args:         ["-o", "pipefail", "-c",
-                                    "rpm2cpio google-chrome-stable-#{version}-1.x86_64.rpm | cpio -idm --quiet"],
+                                    "rpm2cpio #{rpm} | cpio -idm --quiet"],
                      chdir:        staged_path,
                      must_succeed: true
 
@@ -133,7 +135,7 @@ cask "google-chrome-linux" do
     preflight_steps do
       run "/bin/bash",
           args:  ["-o", "pipefail", "-c",
-                  "rpm2cpio google-chrome-stable-{{version}}-1.x86_64.rpm | cpio -idm --quiet"],
+                  "rpm2cpio #{rpm} | cpio -idm --quiet"],
           chdir: "."
 
       copy "opt/google/chrome/product_logo_256.png", "google-chrome.png"
