@@ -25,7 +25,7 @@ jobs:
 
       - name: Bump cask
         id: bump
-        run: ./scripts/bump-chrome-cask "${{ steps.fetch.outputs.VERSION }}" "${{ steps.fetch.outputs.SHA256 }}" >> "$GITHUB_OUTPUT"
+        run: ./scripts/bump-chrome-cask "${{ steps.fetch.outputs.VERSION }}" "${{ steps.fetch.outputs.SHA256_ARM64 }}" "${{ steps.fetch.outputs.SHA256_X86_64 }}" >> "$GITHUB_OUTPUT"
 
       - name: Create or update bump PR
         if: steps.bump.outputs.CHANGED == 'true'
