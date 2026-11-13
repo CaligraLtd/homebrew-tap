@@ -7,8 +7,8 @@ cask "artcraft-launcher-linux" do
          x86_64_linux: "0218089916d60b4d288825d1542f13cb2ca5fb691418f4102201f43a84d1be7b"
 
   # The AppImage, not the tarball: run as an AppImage, the launcher installs
-  # suite apps as AppImages in ~/Applications. Run any other way, it picks the
-  # .rpm and calls `pkexec dnf install`, which fails on Workbench.
+  # suite apps as AppImages too. Run any other way, it picks the .rpm and calls
+  # `pkexec dnf install`, which fails on Workbench.
   url "https://github.com/storytold/craft-launcher/releases/download/v#{version}/artcraft-launcher-#{version}-linux-#{arch}.AppImage"
   name "ArtCraft Launcher"
   desc "Installs, updates and launches the Craft App Suite"
@@ -51,6 +51,20 @@ cask "artcraft-launcher-linux" do
       text.sub!(/^Icon=.*$/, "Icon=#{icon}")
       File.write("#{staged_path}/#{desktop}", text)
     end
+
+    postflight do
+      # Workbench creates ~/programs at login, and the launcher refuses a missing
+      # folder. Seed only on first install so user edits survive upgrades.
+      settings_path = "#{Dir.home}/.local/share/ai.storyteller.artcraft-launcher/app.ron"
+      if File.directory?("#{Dir.home}/programs") && !File.exist?(settings_path)
+        FileUtils.mkdir_p File.dirname(settings_path)
+        File.write(settings_path, <<~'RON')
+          {
+              "settings": "(install_locations:(root:Some(\"~/programs\")))",
+          }
+        RON
+      end
+    end
   else
     preflight_steps do
       run "/bin/sh", args: ["-c", extract], chdir: "."
@@ -62,6 +76,20 @@ cask "artcraft-launcher-linux" do
       inreplace desktop, /^Exec=.*$/, "Exec={{HOMEBREW_PREFIX}}/bin/artcraft-launcher", global: false
       inreplace desktop, /^TryExec=.*$/, "TryExec={{HOMEBREW_PREFIX}}/bin/artcraft-launcher", global: false
       inreplace desktop, /^Icon=.*$/, "Icon=#{icon}", global: false
+    end
+
+    postflight_steps do
+      # Workbench creates ~/programs at login, and the launcher refuses a missing
+      # folder. Seed only on first install so user edits survive upgrades.
+      if_path_exists "programs", base: :home do
+        unless_path_exists ".local/share/ai.storyteller.artcraft-launcher/app.ron", base: :home do
+          write_file ".local/share/ai.storyteller.artcraft-launcher/app.ron", <<~'RON', base: :home
+            {
+                "settings": "(install_locations:(root:Some(\"~/programs\")))",
+            }
+          RON
+        end
+      end
     end
   end
 
