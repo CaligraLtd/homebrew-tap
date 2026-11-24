@@ -4,9 +4,9 @@ cask "google-chrome-linux" do
   arch arm: "aarch64", intel: "x86_64"
   os linux: "linux"
 
-  version "158.0.8127.36"
-  sha256 arm64_linux:  "0bd03de464780d640df0f203c3bb5c4f32a5205f6d8dc862938d1f69f784e371",
-         x86_64_linux: "996e7bea59498a03bd987dec61d5dbcc56e7f86360f22f8ff791a3c969405629"
+  version "158.0.8127.88"
+  sha256 arm64_linux:  "ea90a3339902661d265b2f038c6b23e14c55a5d8a60328d227a1becf5d915f7d",
+         x86_64_linux: "d1e2336969eb47d2a72ddb503bee1bb866ef6a7ea6fc8a955bc1e9792c97a4d8"
 
   url "https://dl.google.com/linux/chrome/rpm/stable/#{arch}/google-chrome-stable-#{version}-1.#{arch}.rpm"
   name "Google Chrome"
