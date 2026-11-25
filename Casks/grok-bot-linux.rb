@@ -2,9 +2,9 @@ cask "grok-bot-linux" do
   arch arm: "arm64", intel: "amd64"
   os linux: "linux"
 
-  version "1.2.3"
-  sha256 arm64_linux:  "e60b424d5c16d9d17246aa947cd4a288038eec274a749d72f97afcd711c4750e",
-         x86_64_linux: "5917521542680b07813a429911f01bfdd191ec6b5409fe5eab623ad5fbf3b08a"
+  version "1.3.0"
+  sha256 arm64_linux:  "f9168a4a6182201a24977c18f42751cd964f8daf300289333c37c4f0baf40ed3",
+         x86_64_linux: "87b046b6e4126c3eb466df59135b59c8efbb5f9f10e0de548f0d65ec8ac55528"
 
   # The .deb, not the AppImage: run as an AppImage, Grok Bot rewrites its
   # .desktop file on every launch and turns its own updater back on.
